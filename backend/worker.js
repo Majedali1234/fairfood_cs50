@@ -1,15 +1,15 @@
-// ============================================================
-// FAIRFOOD - Cloudflare Worker الرئيسي
-// الإصدار: 2.0 - الإطلاق الكامل
-// يشمل: Auth, Restaurants, Menu, Orders, Drivers, Wallet,
+﻿// ============================================================
+// FAIRFOOD - Cloudflare Worker ط§ظ„ط±ط¦ظٹط³ظٹ
+// ط§ظ„ط¥طµط¯ط§ط±: 2.0 - ط§ظ„ط¥ط·ظ„ط§ظ‚ ط§ظ„ظƒط§ظ…ظ„
+// ظٹط´ظ…ظ„: Auth, Restaurants, Menu, Orders, Drivers, Wallet,
 //        Documents, Ratings, Support, Push, Stripe, WebSocket, GPS
 // ============================================================
 
 const encoder = new TextEncoder();
 
-// -------------------- دوال مساعدة (Helpers) --------------------
+// -------------------- ط¯ظˆط§ظ„ ظ…ط³ط§ط¹ط¯ط© (Helpers) --------------------
 
-// إعدادات CORS للأمان
+// ط¥ط¹ط¯ط§ط¯ط§طھ CORS ظ„ظ„ط£ظ…ط§ظ†
 function cors(env) {
   return {
     "access-control-allow-origin": env.CORS_ORIGIN || "*",
@@ -21,7 +21,7 @@ function cors(env) {
   };
 }
 
-// استجابة JSON ناجحة
+// ط§ط³طھط¬ط§ط¨ط© JSON ظ†ط§ط¬ط­ط©
 function json(data, status = 200, env = {}) {
   return new Response(JSON.stringify(data), {
     status,
@@ -29,22 +29,22 @@ function json(data, status = 200, env = {}) {
   });
 }
 
-// استجابة نجاح مختصرة
+// ط§ط³طھط¬ط§ط¨ط© ظ†ط¬ط§ط­ ظ…ط®طھطµط±ط©
 function ok(data = {}, env = {}, status = 200) {
   return json({ success: true, ...data }, status, env);
 }
 
-// استجابة خطأ مختصرة
+// ط§ط³طھط¬ط§ط¨ط© ط®ط·ط£ ظ…ط®طھطµط±ط©
 function fail(message, status = 400, code = "ERROR", env = {}) {
   return json({ success: false, error: { code, message } }, status, env);
 }
 
-// إنشاء ID فريد
+// ط¥ظ†ط´ط§ط، ID ظپط±ظٹط¯
 function uid(prefix) {
   return prefix + "_" + crypto.randomUUID();
 }
 
-// قراءة جسم الطلب كـ JSON
+// ظ‚ط±ط§ط،ط© ط¬ط³ظ… ط§ظ„ط·ظ„ط¨ ظƒظ€ JSON
 async function readBody(request) {
   try {
     return await request.json();
@@ -53,7 +53,7 @@ async function readBody(request) {
   }
 }
 
-// قراءة بيانات FormData (لرفع الملفات)
+// ظ‚ط±ط§ط،ط© ط¨ظٹط§ظ†ط§طھ FormData (ظ„ط±ظپط¹ ط§ظ„ظ…ظ„ظپط§طھ)
 async function readFormData(request) {
   try {
     return await request.formData();
@@ -62,20 +62,20 @@ async function readFormData(request) {
   }
 }
 
-// رفع ملف إلى R2 (مع fallback إلى Base64)
+// ط±ظپط¹ ظ…ظ„ظپ ط¥ظ„ظ‰ R2 (ظ…ط¹ fallback ط¥ظ„ظ‰ Base64)
 async function uploadFile(env, key, buf, contentType) {
   if (env.R2) {
     try {
       await env.R2.put(key, buf, { httpMetadata: { contentType } });
       return `/api/files/${key}`;
     } catch (e) {
-      // fallback إلى Base64
+      // fallback ط¥ظ„ظ‰ Base64
     }
   }
   return `data:${contentType};base64,${bufToB64(buf)}`;
 }
 
-// قراءة ملف من R2
+// ظ‚ط±ط§ط،ط© ظ…ظ„ظپ ظ…ظ† R2
 async function serveFile(env, key) {
   if (!env.R2) return null;
   try {
@@ -90,7 +90,7 @@ async function serveFile(env, key) {
   } catch { return null; }
 }
 
-// تحويل ArrayBuffer إلى Base64
+// طھط­ظˆظٹظ„ ArrayBuffer ط¥ظ„ظ‰ Base64
 function bufToB64(buf) {
   const bytes = new Uint8Array(buf);
   let bin = "";
@@ -98,7 +98,7 @@ function bufToB64(buf) {
   return btoa(bin);
 }
 
-// قراءة body مع دعم FormData (للمنيو)
+// ظ‚ط±ط§ط،ط© body ظ…ط¹ ط¯ط¹ظ… FormData (ظ„ظ„ظ…ظ†ظٹظˆ)
 async function parseMenuBody(request) {
   const ct = request.headers.get("content-type") || "";
   if (ct.includes("multipart")) {
@@ -118,28 +118,28 @@ async function parseMenuBody(request) {
   return { b: await readBody(request) };
 }
 
-// -------------------- دوال التشفير والأمان --------------------
+// -------------------- ط¯ظˆط§ظ„ ط§ظ„طھط´ظپظٹط± ظˆط§ظ„ط£ظ…ط§ظ† --------------------
 
-// تشفير SHA-256
+// طھط´ظپظٹط± SHA-256
 async function sha256Hex(input) {
   const digest = await crypto.subtle.digest("SHA-256", encoder.encode(input));
   return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-// إنشاء كلمة مرور مشفرة
+// ط¥ظ†ط´ط§ط، ظƒظ„ظ…ط© ظ…ط±ظˆط± ظ…ط´ظپط±ط©
 async function hashPassword(password) {
   const salt = crypto.randomUUID().replaceAll("-", "");
   return `sha256$${salt}$${await sha256Hex(salt + password)}`;
 }
 
-// التحقق من كلمة المرور
+// ط§ظ„طھط­ظ‚ظ‚ ظ…ظ† ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±
 async function verifyPassword(password, stored) {
   const [type, salt, hash] = String(stored || "").split("$");
   if (type !== "sha256") return false;
   return await sha256Hex(salt + password) === hash;
 }
 
-// ترميز Base64 URL-safe
+// طھط±ظ…ظٹط² Base64 URL-safe
 function b64urlEncode(value) {
   const bytes = typeof value === "string" ? encoder.encode(value) : value;
   let binary = "";
@@ -147,7 +147,7 @@ function b64urlEncode(value) {
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
 
-// فك ترميز Base64 URL-safe
+// ظپظƒ طھط±ظ…ظٹط² Base64 URL-safe
 function b64urlDecode(str) {
   str = str.replaceAll("-", "+").replaceAll("_", "/");
   while (str.length % 4) str += "=";
@@ -155,13 +155,13 @@ function b64urlDecode(str) {
   return new Uint8Array([...binary].map(c => c.charCodeAt(0)));
 }
 
-// HMAC-SHA256 للتوقيع
+// HMAC-SHA256 ظ„ظ„طھظˆظ‚ظٹط¹
 async function hmac(secret, data) {
   const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return crypto.subtle.sign("HMAC", key, encoder.encode(data));
 }
 
-// توقيع JWT
+// طھظˆظ‚ظٹط¹ JWT
 async function signJwt(payload, env) {
   const now = Math.floor(Date.now() / 1000);
   const header = b64urlEncode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
@@ -176,7 +176,7 @@ async function signJwt(payload, env) {
   return `${data}.${sig}`;
 }
 
-// التحقق من JWT
+// ط§ظ„طھط­ظ‚ظ‚ ظ…ظ† JWT
 async function verifyJwt(token, env) {
   const [h, p, s] = String(token || "").split(".");
   if (!h || !p || !s) throw new Error("Invalid token");
@@ -188,7 +188,7 @@ async function verifyJwt(token, env) {
   return payload;
 }
 
-// الحصول على المستخدم الحالي من التوكن
+// ط§ظ„ط­طµظˆظ„ ط¹ظ„ظ‰ ط§ظ„ظ…ط³طھط®ط¯ظ… ط§ظ„ط­ط§ظ„ظٹ ظ…ظ† ط§ظ„طھظˆظƒظ†
 async function currentUser(request, env) {
   const auth = request.headers.get("authorization") || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
@@ -197,7 +197,7 @@ async function currentUser(request, env) {
   return env.DB.prepare("SELECT id, role, name, email, phone, status, avatar_url FROM users WHERE id=? AND status='active'").bind(payload.sub).first();
 }
 
-// التحقق من الصلاحية ودور المستخدم
+// ط§ظ„طھط­ظ‚ظ‚ ظ…ظ† ط§ظ„طµظ„ط§ط­ظٹط© ظˆط¯ظˆط± ط§ظ„ظ…ط³طھط®ط¯ظ…
 async function requireAuth(request, env, roles = null) {
   const user = await currentUser(request, env).catch(() => null);
   if (!user) return { error: fail("Authentication required", 401, "AUTH_REQUIRED", env) };
@@ -205,14 +205,14 @@ async function requireAuth(request, env, roles = null) {
   return { user };
 }
 
-// تسجيل في سجل التدقيق (للأدمن)
+// طھط³ط¬ظٹظ„ ظپظٹ ط³ط¬ظ„ ط§ظ„طھط¯ظ‚ظٹظ‚ (ظ„ظ„ط£ط¯ظ…ظ†)
 async function audit(env, actor, action, entityType = null, entityId = null, request = null) {
   const ip = request?.headers?.get("cf-connecting-ip") || request?.headers?.get("x-forwarded-for") || null;
   await env.DB.prepare("INSERT INTO audit_logs (id, actor_user_id, action, entity_type, entity_id, ip) VALUES (?, ?, ?, ?, ?, ?)")
     .bind(uid("aud"), actor?.id || null, action, entityType, entityId, ip).run().catch(() => {});
 }
 
-// الحد من سرعة الطلبات (Rate Limiting)
+// ط§ظ„ط­ط¯ ظ…ظ† ط³ط±ط¹ط© ط§ظ„ط·ظ„ط¨ط§طھ (Rate Limiting)
 async function rateLimit(request, env, limit = 600) {
   const ip = request.headers.get("cf-connecting-ip") || "local";
   const key = "rl:" + ip;
@@ -227,20 +227,20 @@ async function rateLimit(request, env, limit = 600) {
   return true;
 }
 
-// إنشاء إشعار داخلي
+// ط¥ظ†ط´ط§ط، ط¥ط´ط¹ط§ط± ط¯ط§ط®ظ„ظٹ
 async function notify(env, userId, title, body) {
   if (!userId) return;
   await env.DB.prepare("INSERT INTO notifications (id,user_id,title,body) VALUES (?,?,?,?)")
     .bind(uid("n"), userId, title, body || "").run().catch(() => {});
 }
 
-// إضافة حدث لسجل الطلب
+// ط¥ط¶ط§ظپط© ط­ط¯ط« ظ„ط³ط¬ظ„ ط§ظ„ط·ظ„ط¨
 async function addEvent(env, orderId, actorId, type, note) {
   await env.DB.prepare("INSERT INTO order_events (id, order_id, actor_user_id, event_type, note) VALUES (?, ?, ?, ?, ?)")
     .bind(uid("ev"), orderId, actorId || null, type, note || type).run();
 }
 
-// حساب المسافة بين نقطتين (كيلومتر)
+// ط­ط³ط§ط¨ ط§ظ„ظ…ط³ط§ظپط© ط¨ظٹظ† ظ†ظ‚ط·طھظٹظ† (ظƒظٹظ„ظˆظ…طھط±)
 function distanceKm(aLat, aLng, bLat, bLng) {
   if ([aLat, aLng, bLat, bLng].some(v => v === null || v === undefined || Number.isNaN(Number(v)))) return 999999;
   const R = 6371, dLat = (Number(bLat) - Number(aLat)) * Math.PI / 180, dLng = (Number(bLng) - Number(aLng)) * Math.PI / 180;
@@ -249,7 +249,7 @@ function distanceKm(aLat, aLng, bLat, bLng) {
 }
 
 // ============================================================
-// العملات العالمية - ISO 4217
+// ط§ظ„ط¹ظ…ظ„ط§طھ ط§ظ„ط¹ط§ظ„ظ…ظٹط© - ISO 4217
 // ============================================================
 const COUNTRY_CURRENCY = {
   'SA': 'SAR', 'AE': 'AED', 'EG': 'EGP', 'JO': 'JOD', 'KW': 'KWD',
@@ -289,7 +289,7 @@ const currencyCache = new Map();
 async function getCurrencyFromCoords(lat, lng) {
   const key = `${Number(lat).toFixed(4)},${Number(lng).toFixed(4)}`;
   if (currencyCache.has(key)) return currencyCache.get(key);
-  
+
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=en`,
@@ -305,7 +305,7 @@ async function getCurrencyFromCoords(lat, lng) {
   }
 }
 
-// تنسيق السعر باستخدام Intl.NumberFormat (محلي)
+// طھظ†ط³ظٹظ‚ ط§ظ„ط³ط¹ط± ط¨ط§ط³طھط®ط¯ط§ظ… Intl.NumberFormat (ظ…ط­ظ„ظٹ)
 function formatPrice(cents, currencyCode, locale = 'ar-SA') {
   try {
     return new Intl.NumberFormat(locale, {
@@ -319,7 +319,7 @@ function formatPrice(cents, currencyCode, locale = 'ar-SA') {
   }
 }
 
-// إنشاء محفظة إذا لم تكن موجودة
+// ط¥ظ†ط´ط§ط، ظ…ط­ظپط¸ط© ط¥ط°ط§ ظ„ظ… طھظƒظ† ظ…ظˆط¬ظˆط¯ط©
 async function createWalletIfMissing(env, ownerType, ownerId) {
   const existing = await env.DB.prepare("SELECT id FROM wallets WHERE owner_type=? AND owner_id=?").bind(ownerType, ownerId).first();
   if (existing) return existing.id;
@@ -328,7 +328,7 @@ async function createWalletIfMissing(env, ownerType, ownerId) {
   return wid;
 }
 
-// إضافة رصيد للمحفظة
+// ط¥ط¶ط§ظپط© ط±طµظٹط¯ ظ„ظ„ظ…ط­ظپط¸ط©
 async function creditWallet(env, ownerType, ownerId, orderId, amount, note) {
   const wid = await createWalletIfMissing(env, ownerType, ownerId);
   await env.DB.batch([
@@ -337,12 +337,12 @@ async function creditWallet(env, ownerType, ownerId, orderId, amount, note) {
   ]);
 }
 
-// جلب تفاصيل الطلب مع المطعم
+// ط¬ظ„ط¨ طھظپط§طµظٹظ„ ط§ظ„ط·ظ„ط¨ ظ…ط¹ ط§ظ„ظ…ط·ط¹ظ…
 async function getOrder(env, id) {
   return env.DB.prepare("SELECT o.*, r.name restaurant_name, r.address restaurant_address, r.lat restaurant_lat, r.lng restaurant_lng, r.currency restaurant_currency, r.owner_user_id FROM orders o JOIN restaurants r ON r.id=o.restaurant_id WHERE o.id=?").bind(id).first();
 }
 
-// إيجاد أفضل سائق متاح قريب من المطعم
+// ط¥ظٹط¬ط§ط¯ ط£ظپط¶ظ„ ط³ط§ط¦ظ‚ ظ…طھط§ط­ ظ‚ط±ظٹط¨ ظ…ظ† ط§ظ„ظ…ط·ط¹ظ…
 async function dispatchBestDriver(env, order) {
   const drivers = (await env.DB.prepare("SELECT * FROM drivers WHERE status='online' AND verification_status='approved'").all()).results || [];
   if (!drivers.length) return null;
@@ -350,13 +350,13 @@ async function dispatchBestDriver(env, order) {
   return ranked[0] || null;
 }
 
-// إرسال إشعارات Push عبر WebPush API (بسطناها لدعم Firebase/WebPush لاحقًا)
+// ط¥ط±ط³ط§ظ„ ط¥ط´ط¹ط§ط±ط§طھ Push ط¹ط¨ط± WebPush API (ط¨ط³ط·ظ†ط§ظ‡ط§ ظ„ط¯ط¹ظ… Firebase/WebPush ظ„ط§ط­ظ‚ظ‹ط§)
 async function sendPushNotification(env, userId, title, body, data = {}) {
   try {
     const tokens = (await env.DB.prepare("SELECT device_token, platform FROM push_tokens WHERE user_id=? AND is_active=1").bind(userId).all()).results || [];
     for (const t of tokens) {
-      // هنا يتم إرسال الإشعار حسب المنصة (iOS/Android/Web)
-      // حاليًا نسجل فقط - لتفعيل الإرسال الفعلي تحتاج FCM Server Key في env.FCM_SERVER_KEY
+      // ظ‡ظ†ط§ ظٹطھظ… ط¥ط±ط³ط§ظ„ ط§ظ„ط¥ط´ط¹ط§ط± ط­ط³ط¨ ط§ظ„ظ…ظ†طµط© (iOS/Android/Web)
+      // ط­ط§ظ„ظٹظ‹ط§ ظ†ط³ط¬ظ„ ظپظ‚ط· - ظ„طھظپط¹ظٹظ„ ط§ظ„ط¥ط±ط³ط§ظ„ ط§ظ„ظپط¹ظ„ظٹ طھط­طھط§ط¬ FCM Server Key ظپظٹ env.FCM_SERVER_KEY
       if (env.FCM_SERVER_KEY && t.platform !== "web") {
         await fetch("https://fcm.googleapis.com/fcm/send", {
           method: "POST",
@@ -365,17 +365,17 @@ async function sendPushNotification(env, userId, title, body, data = {}) {
         }).catch(() => {});
       }
     }
-  } catch (e) { /* تجاهل أخطاء الإشعارات */ }
+  } catch (e) { /* طھط¬ط§ظ‡ظ„ ط£ط®ط·ط§ط، ط§ظ„ط¥ط´ط¹ط§ط±ط§طھ */ }
 }
 
 // -------------------- WebSocket Connections Registry --------------------
-// هذا السجل يحتفظ باتصالات WebSocket النشطة داخل نفس Worker Instance
-// ملاحظة: في Cloudflare Workers بدون Durable Objects، الاتصالات عابرة
-// لكنها كافية للتحديثات اللحظية البسيطة
+// ظ‡ط°ط§ ط§ظ„ط³ط¬ظ„ ظٹط­طھظپط¸ ط¨ط§طھطµط§ظ„ط§طھ WebSocket ط§ظ„ظ†ط´ط·ط© ط¯ط§ط®ظ„ ظ†ظپط³ Worker Instance
+// ظ…ظ„ط§ط­ط¸ط©: ظپظٹ Cloudflare Workers ط¨ط¯ظˆظ† Durable ObjectsطŒ ط§ظ„ط§طھطµط§ظ„ط§طھ ط¹ط§ط¨ط±ط©
+// ظ„ظƒظ†ظ‡ط§ ظƒط§ظپظٹط© ظ„ظ„طھط­ط¯ظٹط«ط§طھ ط§ظ„ظ„ط­ط¸ظٹط© ط§ظ„ط¨ط³ظٹط·ط©
 
-const wsClients = new Map(); // مفتاح: "order:{orderId}" -> Set<WebSocket>
+const wsClients = new Map(); // ظ…ظپطھط§ط­: "order:{orderId}" -> Set<WebSocket>
 
-// بث حدث إلى جميع المشتركين في طلب معين
+// ط¨ط« ط­ط¯ط« ط¥ظ„ظ‰ ط¬ظ…ظٹط¹ ط§ظ„ظ…ط´طھط±ظƒظٹظ† ظپظٹ ط·ظ„ط¨ ظ…ط¹ظٹظ†
 function broadcastToOrder(orderId, event, data) {
   const key = "order:" + orderId;
   const subscribers = wsClients.get(key);
@@ -391,7 +391,7 @@ function broadcastToOrder(orderId, event, data) {
   if (subscribers.size === 0) wsClients.delete(key);
 }
 
-// بث حدث لجميع السائقين المتصلين
+// ط¨ط« ط­ط¯ط« ظ„ط¬ظ…ظٹط¹ ط§ظ„ط³ط§ط¦ظ‚ظٹظ† ط§ظ„ظ…طھطµظ„ظٹظ†
 function broadcastToDrivers(event, data) {
   const key = "drivers";
   const subscribers = wsClients.get(key);
@@ -407,7 +407,7 @@ function broadcastToDrivers(event, data) {
   if (subscribers.size === 0) wsClients.delete(key);
 }
 
-// بث حدث لجميع المطاعم
+// ط¨ط« ط­ط¯ط« ظ„ط¬ظ…ظٹط¹ ط§ظ„ظ…ط·ط§ط¹ظ…
 function broadcastToRestaurants(event, data) {
   const key = "restaurants";
   const subscribers = wsClients.get(key);
@@ -424,7 +424,7 @@ function broadcastToRestaurants(event, data) {
 }
 
 // ============================================================
-// معالج WebSocket (للاتصال المباشر)
+// ظ…ط¹ط§ظ„ط¬ WebSocket (ظ„ظ„ط§طھطµط§ظ„ ط§ظ„ظ…ط¨ط§ط´ط±)
 // ============================================================
 function handleWebSocket(request, env) {
   const upgrade = request.headers.get("Upgrade");
@@ -435,15 +435,15 @@ function handleWebSocket(request, env) {
 
   server.accept();
 
-  // إرسال تأكيد الاتصال
-  server.send(JSON.stringify({ event: "connected", data: { message: "مرحباً بك في Fairfood Realtime" } }));
+  // ط¥ط±ط³ط§ظ„ طھط£ظƒظٹط¯ ط§ظ„ط§طھطµط§ظ„
+  server.send(JSON.stringify({ event: "connected", data: { message: "ظ…ط±ط­ط¨ط§ظ‹ ط¨ظƒ ظپظٹ Fairfood Realtime" } }));
 
-  // استقبال الرسائل من العميل
+  // ط§ط³طھظ‚ط¨ط§ظ„ ط§ظ„ط±ط³ط§ط¦ظ„ ظ…ظ† ط§ظ„ط¹ظ…ظٹظ„
   server.addEventListener("message", (event) => {
     try {
       const msg = JSON.parse(event.data);
 
-      // الانضمام إلى غرفة طلب معين (للعميل)
+      // ط§ظ„ط§ظ†ط¶ظ…ط§ظ… ط¥ظ„ظ‰ ط؛ط±ظپط© ط·ظ„ط¨ ظ…ط¹ظٹظ† (ظ„ظ„ط¹ظ…ظٹظ„)
       if (msg.type === "join:order" && msg.orderId) {
         const key = "order:" + msg.orderId;
         if (!wsClients.has(key)) wsClients.set(key, new Set());
@@ -451,21 +451,21 @@ function handleWebSocket(request, env) {
         server.send(JSON.stringify({ event: "joined", data: { orderId: msg.orderId } }));
       }
 
-      // الانضمام إلى بث السائقين
+      // ط§ظ„ط§ظ†ط¶ظ…ط§ظ… ط¥ظ„ظ‰ ط¨ط« ط§ظ„ط³ط§ط¦ظ‚ظٹظ†
       if (msg.type === "join:drivers") {
         if (!wsClients.has("drivers")) wsClients.set("drivers", new Set());
         wsClients.get("drivers").add(server);
         server.send(JSON.stringify({ event: "joined", data: { channel: "drivers" } }));
       }
 
-      // الانضمام إلى بث المطاعم
+      // ط§ظ„ط§ظ†ط¶ظ…ط§ظ… ط¥ظ„ظ‰ ط¨ط« ط§ظ„ظ…ط·ط§ط¹ظ…
       if (msg.type === "join:restaurants") {
         if (!wsClients.has("restaurants")) wsClients.set("restaurants", new Set());
         wsClients.get("restaurants").add(server);
         server.send(JSON.stringify({ event: "joined", data: { channel: "restaurants" } }));
       }
 
-      // الخروج من الغرفة
+      // ط§ظ„ط®ط±ظˆط¬ ظ…ظ† ط§ظ„ط؛ط±ظپط©
       if (msg.type === "leave" && msg.orderId) {
         const key = "order:" + msg.orderId;
         const subs = wsClients.get(key);
@@ -475,10 +475,10 @@ function handleWebSocket(request, env) {
         }
       }
 
-    } catch (e) { /* تجاهل الرسائل غير الصالحة */ }
+    } catch (e) { /* طھط¬ط§ظ‡ظ„ ط§ظ„ط±ط³ط§ط¦ظ„ ط؛ظٹط± ط§ظ„طµط§ظ„ط­ط© */ }
   });
 
-  // تنظيف عند قطع الاتصال
+  // طھظ†ط¸ظٹظپ ط¹ظ†ط¯ ظ‚ط·ط¹ ط§ظ„ط§طھطµط§ظ„
   server.addEventListener("close", () => {
     for (const [key, subs] of wsClients) {
       if (subs.has(server)) {
@@ -492,45 +492,46 @@ function handleWebSocket(request, env) {
 }
 
 // ============================================================
-// التطبيق الرئيسي - جميع مسارات API
+// ط§ظ„طھط·ط¨ظٹظ‚ ط§ظ„ط±ط¦ظٹط³ظٹ - ط¬ظ…ظٹط¹ ظ…ط³ط§ط±ط§طھ API
 // ============================================================
 async function app(request, env) {
-  // معالجة طلبات CORS المسبقة (OPTIONS)
+  // ظ…ط¹ط§ظ„ط¬ط© ط·ظ„ط¨ط§طھ CORS ط§ظ„ظ…ط³ط¨ظ‚ط© (OPTIONS)
   if (request.method === "OPTIONS") return new Response(null, { headers: cors(env) });
 
-  // التحقق من معدل الطلبات
+  // ط§ظ„طھط­ظ‚ظ‚ ظ…ظ† ظ…ط¹ط¯ظ„ ط§ظ„ط·ظ„ط¨ط§طھ
   if (!(await rateLimit(request, env))) return fail("Too many requests", 429, "RATE_LIMIT", env);
 
   const url = new URL(request.url);
   let path = url.pathname.replace(/\/+$/, "") || "/";
   const method = request.method;
 
-  // -------------------- دعم كلا المسارين /api/ و /api/v1/ --------------------
-  // التطبيقات الجديدة تستخدم /api/v1/ والتطبيقات القديمة تستخدم /api/
+  // -------------------- ط¯ط¹ظ… ظƒظ„ط§ ط§ظ„ظ…ط³ط§ط±ظٹظ† /api/ ظˆ /api/v1/ --------------------
+  // ط§ظ„طھط·ط¨ظٹظ‚ط§طھ ط§ظ„ط¬ط¯ظٹط¯ط© طھط³طھط®ط¯ظ… /api/v1/ ظˆط§ظ„طھط·ط¨ظٹظ‚ط§طھ ط§ظ„ظ‚ط¯ظٹظ…ط© طھط³طھط®ط¯ظ… /api/
   if (path.startsWith("/api/v1/")) {
     path = "/api/" + path.slice(8);
   }
   if (path === "/api/v1") path = "/api";
 
+
   // -------------------- WebSocket Handler --------------------
-  // التحقق من طلب ترقية WebSocket
+  // ط§ظ„طھط­ظ‚ظ‚ ظ…ظ† ط·ظ„ط¨ طھط±ظ‚ظٹط© WebSocket
   const wsResponse = handleWebSocket(request, env);
   if (wsResponse) return wsResponse;
 
   // ================================================================
-  // المسارات العامة
+  // ط§ظ„ظ…ط³ط§ط±ط§طھ ط§ظ„ط¹ط§ظ…ط©
   // ================================================================
 
-  // فحص صحة الخدمة
+  // ظپط­طµ طµط­ط© ط§ظ„ط®ط¯ظ…ط©
   if (path === "/api/health") {
     return ok({ service: "Fairfood API v2.0", status: "ok", apiBase: env.PUBLIC_API_BASE }, env);
   }
 
   // ================================================================
-  // AUTH - تسجيل الدخول والخروج
+  // AUTH - طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ ظˆط§ظ„ط®ط±ظˆط¬
   // ================================================================
 
-  // تسجيل مستخدم جديد
+  // طھط³ط¬ظٹظ„ ظ…ط³طھط®ط¯ظ… ط¬ط¯ظٹط¯
   if ((path === "/api/auth/register" || path === "/api/v1/auth/register") && method === "POST") {
     const b = await readBody(request);
     if (!["customer", "restaurant", "driver"].includes(b.role)) return fail("Invalid role", 422, "INVALID_ROLE", env);
@@ -565,7 +566,7 @@ async function app(request, env) {
     return ok({ user, token: await signJwt({ sub: user.id, role: user.role }, env) }, env, 201);
   }
 
-  // تسجيل الدخول
+  // طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„
   if ((path === "/api/auth/login" || path === "/api/v1/auth/login") && method === "POST") {
     const b = await readBody(request);
     const user = await env.DB.prepare("SELECT * FROM users WHERE email=?").bind(String(b.email || "").toLowerCase()).first();
@@ -576,28 +577,28 @@ async function app(request, env) {
     return ok({ user: safe, token: await signJwt({ sub: user.id, role: user.role }, env) }, env);
   }
 
-  // دخول كزائر
+  // ط¯ط®ظˆظ„ ظƒط²ط§ط¦ط±
   if ((path === "/api/auth/guest" || path === "/api/v1/auth/guest") && method === "POST") {
     const guestId = uid("guest");
     const token = await signJwt({ sub: guestId, role: "customer", guest: true }, env);
-    return ok({ token, user: { id: guestId, role: "customer", name: "زائر", guest: true } }, env);
+    return ok({ token, user: { id: guestId, role: "customer", name: "ط²ط§ط¦ط±", guest: true } }, env);
   }
 
-  // تجديد التوكن
+  // طھط¬ط¯ظٹط¯ ط§ظ„طھظˆظƒظ†
   if ((path === "/api/auth/refresh" || path === "/api/v1/auth/refresh") && method === "POST") {
     const a = await requireAuth(request, env);
     if (a.error) return a.error;
     return ok({ token: await signJwt({ sub: a.user.id, role: a.user.role }, env) }, env);
   }
 
-  // معلومات المستخدم الحالي
+  // ظ…ط¹ظ„ظˆظ…ط§طھ ط§ظ„ظ…ط³طھط®ط¯ظ… ط§ظ„ط­ط§ظ„ظٹ
   if ((path === "/api/auth/me" || path === "/api/v1/auth/me") && method === "GET") {
     const a = await requireAuth(request, env);
     if (a.error) return a.error;
     return ok({ user: a.user }, env);
   }
 
-  // تحقق من التوكن (للتطبيقات)
+  // طھط­ظ‚ظ‚ ظ…ظ† ط§ظ„طھظˆظƒظ† (ظ„ظ„طھط·ط¨ظٹظ‚ط§طھ)
   if (path === "/api/auth/verify" && method === "GET") {
     const a = await requireAuth(request, env);
     if (a.error) return a.error;
@@ -605,17 +606,17 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // PROFILE - الملف الشخصي
+  // PROFILE - ط§ظ„ظ…ظ„ظپ ط§ظ„ط´ط®طµظٹ
   // ================================================================
 
-  // جلب الملف الشخصي
+  // ط¬ظ„ط¨ ط§ظ„ظ…ظ„ظپ ط§ظ„ط´ط®طµظٹ
   if ((path === "/api/profile/me" || path === "/api/v1/profile/me") && method === "GET") {
     const a = await requireAuth(request, env);
     if (a.error) return a.error;
     return ok({ data: a.user }, env);
   }
 
-  // تحديث الملف الشخصي
+  // طھط­ط¯ظٹط« ط§ظ„ظ…ظ„ظپ ط§ظ„ط´ط®طµظٹ
   if ((path === "/api/profile/me" || path === "/api/v1/profile/me") && method === "PUT") {
     const a = await requireAuth(request, env);
     if (a.error) return a.error;
@@ -626,10 +627,10 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // ADDRESSES - عناوين العميل
+  // ADDRESSES - ط¹ظ†ط§ظˆظٹظ† ط§ظ„ط¹ظ…ظٹظ„
   // ================================================================
 
-  // جلب العناوين
+  // ط¬ظ„ط¨ ط§ظ„ط¹ظ†ط§ظˆظٹظ†
   if ((path === "/api/profile/addresses" || path === "/api/v1/profile/addresses") && method === "GET") {
     const a = await requireAuth(request, env, "customer");
     if (a.error) return a.error;
@@ -637,7 +638,7 @@ async function app(request, env) {
     return ok({ data: rows.results || [] }, env);
   }
 
-  // إضافة عنوان
+  // ط¥ط¶ط§ظپط© ط¹ظ†ظˆط§ظ†
   if ((path === "/api/profile/addresses" || path === "/api/v1/profile/addresses") && method === "POST") {
     const a = await requireAuth(request, env, "customer");
     if (a.error) return a.error;
@@ -650,7 +651,7 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // CATEGORIES - تصنيفات المطاعم
+  // CATEGORIES - طھطµظ†ظٹظپط§طھ ط§ظ„ظ…ط·ط§ط¹ظ…
   // ================================================================
 
   if ((path === "/api/categories" || path === "/api/v1/categories") && method === "GET") {
@@ -659,37 +660,41 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // RESTAURANTS - المطاعم (عامة)
+  // RESTAURANTS - ط§ظ„ظ…ط·ط§ط¹ظ… (ط¹ط§ظ…ط©)
   // ================================================================
 
-  // قائمة المطاعم المفتوحة
+  // ظ‚ط§ط¦ظ…ط© ط§ظ„ظ…ط·ط§ط¹ظ… ط§ظ„ظ…ظپطھظˆط­ط©
   if ((path === "/api/restaurants" || path === "/api/v1/restaurants") && method === "GET") {
     const rows = await env.DB.prepare("SELECT * FROM restaurants WHERE status='open' AND verification_status='approved' ORDER BY rating DESC").all();
     return ok({ data: rows.results || [] }, env);
   }
 
-  // المطاعم القريبة (مع فلترة المسافة - افتراضي 40كم)
+  // ط§ظ„ظ…ط·ط§ط¹ظ… ط§ظ„ظ‚ط±ظٹط¨ط© (ظ…ط¹ ظپظ„طھط±ط© ط§ظ„ظ…ط³ط§ظپط© - ط§ظپطھط±ط§ط¶ظٹ 40ظƒظ…)
   if ((path === "/api/restaurants/nearby" || path === "/api/v1/restaurants/nearby") && method === "GET") {
     const lat = Number(url.searchParams.get("lat"));
     const lng = Number(url.searchParams.get("lng"));
     const radius = Math.min(Number(url.searchParams.get("radius") || 40), 100); // max 100km
-    
+
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       return fail("Invalid coordinates", 422, "INVALID_COORDS", env);
     }
 
     // Haversine formula in SQL (SQLite)
+    // AI-assisted: POWER() -> pow() for D1 compatibility (ChatGPT, OpenCode)
+    // AI-assisted: subquery wrapper for HAVING-on-non-aggregate fix (ChatGPT, OpenCode)
     const rows = await env.DB.prepare(`
-      SELECT *, 
-        (6371 * 2 * ASIN(SQRT(
-          POWER(SIN((? - lat) * PI()/360), 2) + 
-          COS(lat * PI()/180) * COS(? * PI()/180) * 
-          POWER(SIN((? - lng) * PI()/360), 2)
-        ))) AS distance_km
-      FROM restaurants 
-      WHERE status='open' AND verification_status='approved' 
-        AND lat IS NOT NULL AND lng IS NOT NULL
-      HAVING distance_km <= ?
+      SELECT * FROM (
+        SELECT *,
+          (6371 * 2 * ASIN(SQRT(
+            pow(SIN((? - lat) * PI()/360), 2) +
+            COS(lat * PI()/180) * COS(? * PI()/180) *
+            pow(SIN((? - lng) * PI()/360), 2)
+          ))) AS distance_km
+        FROM restaurants
+        WHERE status='open' AND verification_status='approved'
+          AND lat IS NOT NULL AND lng IS NOT NULL
+      )
+      WHERE distance_km <= ?
       ORDER BY distance_km ASC
       LIMIT 50
     `).bind(lat, lat, lng, radius).all();
@@ -697,7 +702,7 @@ async function app(request, env) {
     return ok({ data: rows.results || [] }, env);
   }
 
-  // قائمة منيو مطعم معين
+  // ظ‚ط§ط¦ظ…ط© ظ…ظ†ظٹظˆ ظ…ط·ط¹ظ… ظ…ط¹ظٹظ†
   const publicMenu = path.match(/^\/api\/restaurants\/([^/]+)\/menu$/);
   if (publicMenu && method === "GET") {
     const rows = await env.DB.prepare("SELECT * FROM menu_items WHERE restaurant_id=? AND available=1 AND (inventory_count IS NULL OR inventory_count > 0) ORDER BY category, name").bind(publicMenu[1]).all();
@@ -705,10 +710,10 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // COUPONS - كوبونات الخصم
+  // COUPONS - ظƒظˆط¨ظˆظ†ط§طھ ط§ظ„ط®طµظ…
   // ================================================================
 
-  // التحقق من صلاحية الكوبون
+  // ط§ظ„طھط­ظ‚ظ‚ ظ…ظ† طµظ„ط§ط­ظٹط© ط§ظ„ظƒظˆط¨ظˆظ†
   if ((path === "/api/coupons/validate" || path === "/api/v1/coupons/validate") && method === "POST") {
     const b = await readBody(request);
     const subtotal = Number(b.subtotalCents || 0);
@@ -720,10 +725,10 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // ORDERS - الطلبات
+  // ORDERS - ط§ظ„ط·ظ„ط¨ط§طھ
   // ================================================================
 
-  // حساب عرض سعر للطلب
+  // ط­ط³ط§ط¨ ط¹ط±ط¶ ط³ط¹ط± ظ„ظ„ط·ظ„ط¨
   if ((path === "/api/orders/quote" || path === "/api/v1/orders/quote") && method === "POST") {
     const a = await requireAuth(request, env, "customer");
     if (a.error) return a.error;
@@ -738,12 +743,12 @@ async function app(request, env) {
       subtotal += Number(it.quantity || 1) * m.price_cents;
     }
     const delivery = restaurant.delivery_fee_cents || 0;
-    const service = 0; // يمكن إضافة رسوم خدمة لاحقًا
+    const service = 0; // ظٹظ…ظƒظ† ط¥ط¶ط§ظپط© ط±ط³ظˆظ… ط®ط¯ظ…ط© ظ„ط§ط­ظ‚ظ‹ط§
     const total = subtotal + delivery + service;
     return ok({ data: { subtotal, delivery_fee: delivery, service_fee: service, total, quoteId: uid("q") } }, env);
   }
 
-  // إنشاء طلب جديد
+  // ط¥ظ†ط´ط§ط، ط·ظ„ط¨ ط¬ط¯ظٹط¯
   if ((path === "/api/orders" || path === "/api/v1/orders") && method === "POST") {
     const a = await requireAuth(request, env, "customer");
     if (a.error) return a.error;
@@ -773,7 +778,7 @@ async function app(request, env) {
     }
     const orderId = uid("o");
     const total = Math.max(0, subtotal + restaurant.delivery_fee_cents - discount);
-    // اختيار طريقة الدفع: إذا كانت Stripe، ننتظر تأكيد الدفع
+    // ط§ط®طھظٹط§ط± ط·ط±ظٹظ‚ط© ط§ظ„ط¯ظپط¹: ط¥ط°ط§ ظƒط§ظ†طھ StripeطŒ ظ†ظ†طھط¸ط± طھط£ظƒظٹط¯ ط§ظ„ط¯ظپط¹
     const paymentMethod = b.payment_method || "cash";
     const paymentStatus = paymentMethod === "cash" ? "pending" : (paymentMethod === "stripe" ? "pending" : "pending");
     await env.DB.prepare("INSERT INTO orders (id, customer_user_id, restaurant_id, customer_name, customer_phone, delivery_address, delivery_note, subtotal_cents, delivery_fee_cents, discount_cents, total_cents, payment_method, payment_status, coupon_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
@@ -785,16 +790,16 @@ async function app(request, env) {
         await env.DB.prepare("UPDATE menu_items SET inventory_count=inventory_count-? WHERE id=?").bind(item.qty, item.m.id).run();
       }
     }
-    await addEvent(env, orderId, a.user.id, "order.created", "طلب جديد وصل للمطعم");
-    await notify(env, restaurant.owner_user_id, "طلب جديد", "لديك طلب جديد يحتاج قبول أو رفض.");
-    // بث للـ WebSocket
+    await addEvent(env, orderId, a.user.id, "order.created", "ط·ظ„ط¨ ط¬ط¯ظٹط¯ ظˆطµظ„ ظ„ظ„ظ…ط·ط¹ظ…");
+    await notify(env, restaurant.owner_user_id, "ط·ظ„ط¨ ط¬ط¯ظٹط¯", "ظ„ط¯ظٹظƒ ط·ظ„ط¨ ط¬ط¯ظٹط¯ ظٹط­طھط§ط¬ ظ‚ط¨ظˆظ„ ط£ظˆ ط±ظپط¶.");
+    // ط¨ط« ظ„ظ„ظ€ WebSocket
     broadcastToRestaurants("order:new", { orderId, restaurant_id: restaurant.id });
     await audit(env, a.user, "order.create", "order", orderId, request);
     const order = await getOrder(env, orderId);
     return ok({ data: order || { id: orderId } }, env, 201);
   }
 
-  // طلباتي (للعميل)
+  // ط·ظ„ط¨ط§طھظٹ (ظ„ظ„ط¹ظ…ظٹظ„)
   if ((path === "/api/orders/my" || path === "/api/v1/orders/my") && method === "GET") {
     const a = await requireAuth(request, env, "customer");
     if (a.error) return a.error;
@@ -803,10 +808,10 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // RESTAURANT PRIVATE - لوحة المطعم
+  // RESTAURANT PRIVATE - ظ„ظˆط­ط© ط§ظ„ظ…ط·ط¹ظ…
   // ================================================================
 
-  // معلومات المطعم للمالك
+  // ظ…ط¹ظ„ظˆظ…ط§طھ ط§ظ„ظ…ط·ط¹ظ… ظ„ظ„ظ…ط§ظ„ظƒ
   if ((path === "/api/restaurant/me" || path === "/api/v1/restaurant/me") && method === "GET") {
     const a = await requireAuth(request, env, "restaurant");
     if (a.error) return a.error;
@@ -815,7 +820,7 @@ async function app(request, env) {
     return ok({ data: { restaurant } }, env);
   }
 
-  // تحديث المطعم
+  // طھط­ط¯ظٹط« ط§ظ„ظ…ط·ط¹ظ…
   const restaurantUpdate = path.match(/^\/api\/restaurant\/([^/]+)$/);
   if (restaurantUpdate && method === "PUT") {
     const a = await requireAuth(request, env, "restaurant");
@@ -823,19 +828,19 @@ async function app(request, env) {
     const b = await readBody(request);
     const r = await env.DB.prepare("SELECT id FROM restaurants WHERE owner_user_id=?").bind(a.user.id).first();
     if (!r || r.id !== restaurantUpdate[1]) return fail("Forbidden", 403, "FORBIDDEN", env);
-    
+
     // Currency: manual choice beats auto-detect
     let currency = b.currency || null;
     if (!currency && b.lat && b.lng) {
       currency = await getCurrencyFromCoords(b.lat, b.lng);
     }
-    
+
     await env.DB.prepare("UPDATE restaurants SET name=COALESCE(?,name), phone=COALESCE(?,phone), address=COALESCE(?,address), description=COALESCE(?,description), cuisine=COALESCE(?,cuisine), is_open=COALESCE(?,is_open), opening_time=COALESCE(?,opening_time), closing_time=COALESCE(?,closing_time), lat=COALESCE(?,lat), lng=COALESCE(?,lng), currency=COALESCE(?,currency), delivery_fee_cents=COALESCE(?,delivery_fee_cents), min_order_cents=COALESCE(?,min_order_cents), delivery_time_min=COALESCE(?,delivery_time_min), delivery_time_max=COALESCE(?,delivery_time_max), status=CASE WHEN ?=1 THEN 'open' WHEN ?=0 THEN 'closed' ELSE status END, updated_at=CURRENT_TIMESTAMP WHERE id=?")
       .bind(b.name ?? null, b.phone ?? null, b.address ?? null, b.description ?? null, b.cuisine ?? null, b.isOpen === undefined ? null : (b.isOpen ? 1 : 0), b.openingTime ?? null, b.closingTime ?? null, b.lat ?? null, b.lng ?? null, currency, b.deliveryFeeCents ?? null, b.minOrderCents ?? null, b.deliveryTimeMin ?? null, b.deliveryTimeMax ?? null, b.isOpen === undefined ? null : (b.isOpen ? 1 : 0), b.isOpen === undefined ? null : (b.isOpen ? 0 : 1), r.id).run();
     return ok({ message: "updated" }, env);
   }
 
-  // الملف الشخصي للمطعم (للتوافق مع الإصدار القديم)
+  // ط§ظ„ظ…ظ„ظپ ط§ظ„ط´ط®طµظٹ ظ„ظ„ظ…ط·ط¹ظ… (ظ„ظ„طھظˆط§ظپظ‚ ظ…ط¹ ط§ظ„ط¥طµط¯ط§ط± ط§ظ„ظ‚ط¯ظٹظ…)
   if ((path === "/api/restaurant/profile" || path === "/api/v1/restaurant/profile") && method === "GET") {
     const a = await requireAuth(request, env, "restaurant");
     if (a.error) return a.error;
@@ -843,7 +848,7 @@ async function app(request, env) {
     return ok({ restaurant }, env);
   }
 
-  // قائمة منيو المطعم (للمطعم نفسه)
+  // ظ‚ط§ط¦ظ…ط© ظ…ظ†ظٹظˆ ط§ظ„ظ…ط·ط¹ظ… (ظ„ظ„ظ…ط·ط¹ظ… ظ†ظپط³ظ‡)
   if ((path === "/api/restaurant/menu" || path === "/api/v1/restaurant/menu") && method === "GET") {
     const a = await requireAuth(request, env, "restaurant");
     if (a.error) return a.error;
@@ -851,11 +856,11 @@ async function app(request, env) {
     if (!r) return fail("Restaurant not found", 404, "NOT_FOUND", env);
     const items = await env.DB.prepare("SELECT * FROM menu_items WHERE restaurant_id=? ORDER BY category, name").bind(r.id).all();
     const categories = await env.DB.prepare("SELECT DISTINCT category_id, category FROM menu_items WHERE restaurant_id=? AND category IS NOT NULL ORDER BY category").bind(r.id).all();
-    return ok({ data: items.results || [], items: items.results || [], categories: categories.results || [] }, env);
+    return ok({ items: items.results || [], categories: categories.results || [] }, env);
   }
 
-  // إضافة صنف للمنيو (للمطعم)
-  // إضافة صنف للمنيو (للمطعم)
+  // ط¥ط¶ط§ظپط© طµظ†ظپ ظ„ظ„ظ…ظ†ظٹظˆ (ظ„ظ„ظ…ط·ط¹ظ…)
+  // ط¥ط¶ط§ظپط© طµظ†ظپ ظ„ظ„ظ…ظ†ظٹظˆ (ظ„ظ„ظ…ط·ط¹ظ…)
   if ((path === "/api/restaurant/menu" || path === "/api/v1/restaurant/menu") && method === "POST") {
     const a = await requireAuth(request, env, "restaurant");
     if (a.error) return a.error;
@@ -871,7 +876,7 @@ async function app(request, env) {
     return ok({ id: itemId }, env, 201);
   }
 
-  // تعديل أو حذف صنف في المنيو
+  // طھط¹ط¯ظٹظ„ ط£ظˆ ط­ط°ظپ طµظ†ظپ ظپظٹ ط§ظ„ظ…ظ†ظٹظˆ
   const restaurantItem = path.match(/^\/api\/restaurant\/menu\/([^/]+)$/);
   if (restaurantItem && ["PATCH", "PUT", "DELETE"].includes(method)) {
     const a = await requireAuth(request, env, "restaurant");
@@ -892,13 +897,13 @@ async function app(request, env) {
     return ok({ message: "updated" }, env);
   }
 
-  // منيو المطعم مع restaurantId (للتطبيق الجديد)
+  // ظ…ظ†ظٹظˆ ط§ظ„ظ…ط·ط¹ظ… ظ…ط¹ restaurantId (ظ„ظ„طھط·ط¨ظٹظ‚ ط§ظ„ط¬ط¯ظٹط¯)
   const restaurantMenuById = path.match(/^\/api\/restaurant\/([^/]+)\/menu$/);
   if (restaurantMenuById && method === "GET") {
     const a = await requireAuth(request, env, "restaurant");
     if (a.error) return a.error;
     const rId = restaurantMenuById[1];
-    // تحقق أن المطعم يخص المستخدم
+    // طھط­ظ‚ظ‚ ط£ظ† ط§ظ„ظ…ط·ط¹ظ… ظٹط®طµ ط§ظ„ظ…ط³طھط®ط¯ظ…
     const r = await env.DB.prepare("SELECT id FROM restaurants WHERE id=? AND owner_user_id=?").bind(rId, a.user.id).first();
     if (!r) return fail("Forbidden", 403, "FORBIDDEN", env);
     const items = await env.DB.prepare("SELECT * FROM menu_items WHERE restaurant_id=? ORDER BY category, name").bind(rId).all();
@@ -906,7 +911,7 @@ async function app(request, env) {
     return ok({ data: items.results || [], items: items.results || [], categories: categories.results || [] }, env);
   }
 
-  // إضافة صنف للمنيو (بـ restaurantId)
+  // ط¥ط¶ط§ظپط© طµظ†ظپ ظ„ظ„ظ…ظ†ظٹظˆ (ط¨ظ€ restaurantId)
   if (restaurantMenuById && method === "POST") {
     const a = await requireAuth(request, env, "restaurant");
     if (a.error) return a.error;
@@ -923,7 +928,7 @@ async function app(request, env) {
     return ok({ id: itemId }, env, 201);
   }
 
-  // طلبات المطعم
+  // ط·ظ„ط¨ط§طھ ط§ظ„ظ…ط·ط¹ظ…
   if ((path === "/api/restaurant/orders" || path === "/api/v1/restaurant/orders") && method === "GET") {
     const a = await requireAuth(request, env, "restaurant");
     if (a.error) return a.error;
@@ -945,7 +950,7 @@ async function app(request, env) {
     return ok({ data: orders, orders }, env);
   }
 
-  // طلبات المطعم (بـ restaurantId)
+  // ط·ظ„ط¨ط§طھ ط§ظ„ظ…ط·ط¹ظ… (ط¨ظ€ restaurantId)
   const restaurantOrdersById = path.match(/^\/(?:api\/v1|api)\/restaurant\/([^/]+)\/orders$/);
   if (restaurantOrdersById && method === "GET") {
     const a = await requireAuth(request, env, "restaurant");
@@ -966,7 +971,7 @@ async function app(request, env) {
     return ok({ data: orders, orders }, env);
   }
 
-  // أرباح المطعم
+  // ط£ط±ط¨ط§ط­ ط§ظ„ظ…ط·ط¹ظ…
   const restaurantEarnings = path.match(/^\/api\/restaurant\/([^/]+)\/earnings$/);
   if (restaurantEarnings && method === "GET") {
     const a = await requireAuth(request, env, "restaurant");
@@ -982,10 +987,10 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // DRIVER PRIVATE - لوحة السائق
+  // DRIVER PRIVATE - ظ„ظˆط­ط© ط§ظ„ط³ط§ط¦ظ‚
   // ================================================================
 
-  // دخول السائق
+  // ط¯ط®ظˆظ„ ط§ظ„ط³ط§ط¦ظ‚
   if ((path === "/api/driver/auth/login" || path === "/api/v1/driver/auth/login") && method === "POST") {
     const b = await readBody(request);
     const user = await env.DB.prepare("SELECT * FROM users WHERE email=? AND role='driver'").bind(String(b.email || "").toLowerCase()).first();
@@ -997,7 +1002,7 @@ async function app(request, env) {
     return ok({ token: await signJwt({ sub: user.id, role: "driver" }, env), user: { ...user, driver: loginDriverData, vehicle_plate: loginDriverData.plate_number || "", vehicle_model: loginDriverData.vehicle_model || "", rating: loginDriverData.rating || 0, total_deliveries: loginDriverData.total_deliveries || 0, today_earnings: 0, weekly_earnings: 0, monthly_earnings: 0, password_hash: undefined } }, env);
   }
 
-  // ملف السائق
+  // ظ…ظ„ظپ ط§ظ„ط³ط§ط¦ظ‚
   if ((path === "/api/driver/profile" || path === "/api/v1/driver/profile") && method === "GET") {
     const a = await requireAuth(request, env, "driver");
     if (a.error) return a.error;
@@ -1006,7 +1011,7 @@ async function app(request, env) {
     return ok({ data: { ...a.user, driver: driverData, vehicle_plate: driverData.plate_number || "", vehicle_model: driverData.vehicle_model || "", rating: driverData.rating || 0, total_deliveries: driverData.total_deliveries || 0, today_earnings: driverData.today_earnings || 0, weekly_earnings: driverData.weekly_earnings || 0, monthly_earnings: driverData.monthly_earnings || 0 } }, env);
   }
 
-  // تغيير حالة السائق (متصل/غير متصل)
+  // طھط؛ظٹظٹط± ط­ط§ظ„ط© ط§ظ„ط³ط§ط¦ظ‚ (ظ…طھطµظ„/ط؛ظٹط± ظ…طھطµظ„)
   if ((path === "/api/driver/status" || path === "/api/v1/driver/status") && method === "POST") {
     const a = await requireAuth(request, env, "driver");
     if (a.error) return a.error;
@@ -1016,7 +1021,7 @@ async function app(request, env) {
     return ok({ status }, env);
   }
 
-  // تشغيل/إيقاف السائق (للتوافق مع التطبيق الجديد)
+  // طھط´ط؛ظٹظ„/ط¥ظٹظ‚ط§ظپ ط§ظ„ط³ط§ط¦ظ‚ (ظ„ظ„طھظˆط§ظپظ‚ ظ…ط¹ ط§ظ„طھط·ط¨ظٹظ‚ ط§ظ„ط¬ط¯ظٹط¯)
   if ((path === "/api/driver/online" || path === "/api/v1/driver/online") && method === "POST") {
     const a = await requireAuth(request, env, "driver");
     if (a.error) return a.error;
@@ -1030,7 +1035,7 @@ async function app(request, env) {
     return ok({ status: "offline" }, env);
   }
 
-  // تحديث موقع السائق
+  // طھط­ط¯ظٹط« ظ…ظˆظ‚ط¹ ط§ظ„ط³ط§ط¦ظ‚
   if ((path === "/api/driver/location" || path === "/api/v1/driver/location") && method === "POST") {
     const a = await requireAuth(request, env, "driver");
     if (a.error) return a.error;
@@ -1043,14 +1048,14 @@ async function app(request, env) {
       env.DB.prepare("UPDATE drivers SET lat=?, lng=?, last_location_at=CURRENT_TIMESTAMP WHERE id=?").bind(lat, lng, d.id),
       env.DB.prepare("INSERT INTO driver_locations (id,driver_id,order_id,lat,lng,accuracy) VALUES (?,?,?,?,?,?)").bind(uid("dl"), d.id, b.orderId || null, lat, lng, b.accuracy || null)
     ]);
-    // بث موقع السائق للمشتركين في الطلب
+    // ط¨ط« ظ…ظˆظ‚ط¹ ط§ظ„ط³ط§ط¦ظ‚ ظ„ظ„ظ…ط´طھط±ظƒظٹظ† ظپظٹ ط§ظ„ط·ظ„ط¨
     if (b.orderId) {
       broadcastToOrder(b.orderId, "driver:location", { lat, lng, accuracy: b.accuracy });
     }
     return ok({ location: { lat, lng } }, env);
   }
 
-  // الطلبات المتاحة للسائق
+  // ط§ظ„ط·ظ„ط¨ط§طھ ط§ظ„ظ…طھط§ط­ط© ظ„ظ„ط³ط§ط¦ظ‚
   if ((path === "/api/driver/orders/available" || path === "/api/v1/driver/orders/available" || path === "/api/driver/orders/new") && method === "GET") {
     const a = await requireAuth(request, env, "driver");
     if (a.error) return a.error;
@@ -1059,7 +1064,7 @@ async function app(request, env) {
     return ok({ data: orders, orders: orders }, env);
   }
 
-  // طلبيات السائق الحالية
+  // ط·ظ„ط¨ظٹط§طھ ط§ظ„ط³ط§ط¦ظ‚ ط§ظ„ط­ط§ظ„ظٹط©
   if ((path === "/api/driver/orders/current" || path === "/api/v1/driver/orders/current") && method === "GET") {
     const a = await requireAuth(request, env, "driver");
     if (a.error) return a.error;
@@ -1069,7 +1074,7 @@ async function app(request, env) {
     return ok({ data: rows.results || [], orders: rows.results || [] }, env);
   }
 
-  // سجل طلبات السائق
+  // ط³ط¬ظ„ ط·ظ„ط¨ط§طھ ط§ظ„ط³ط§ط¦ظ‚
   if ((path === "/api/driver/orders/history" || path === "/api/v1/driver/orders/history") && method === "GET") {
     const a = await requireAuth(request, env, "driver");
     if (a.error) return a.error;
@@ -1079,7 +1084,7 @@ async function app(request, env) {
     return ok({ data: rows.results || [] }, env);
   }
 
-  // أرباح السائق
+  // ط£ط±ط¨ط§ط­ ط§ظ„ط³ط§ط¦ظ‚
   if ((path === "/api/driver/earnings" || path === "/api/v1/driver/earnings") && method === "GET") {
     const a = await requireAuth(request, env, "driver");
     if (a.error) return a.error;
@@ -1092,7 +1097,7 @@ async function app(request, env) {
     return ok({ data: { today_earnings: today?.total || 0, weekly_earnings: week?.total || 0, monthly_earnings: month?.total || 0, total_deliveries: totalDeliveries?.count || 0, today_deliveries: 0 } }, env);
   }
 
-  // محفظة السائق
+  // ظ…ط­ظپط¸ط© ط§ظ„ط³ط§ط¦ظ‚
   if ((path === "/api/driver/wallet" || path === "/api/v1/driver/wallet") && method === "GET") {
     const a = await requireAuth(request, env, "driver");
     if (a.error) return a.error;
@@ -1105,7 +1110,7 @@ async function app(request, env) {
     return ok({ data: w }, env);
   }
 
-  // حركات المحفظة
+  // ط­ط±ظƒط§طھ ط§ظ„ظ…ط­ظپط¸ط©
   if ((path === "/api/driver/wallet/transactions" || path === "/api/v1/driver/wallet/transactions") && method === "GET") {
     const a = await requireAuth(request, env, "driver");
     if (a.error) return a.error;
@@ -1117,7 +1122,7 @@ async function app(request, env) {
     return ok({ data: txData }, env);
   }
 
-  // طلب سحب من المحفظة
+  // ط·ظ„ط¨ ط³ط­ط¨ ظ…ظ† ط§ظ„ظ…ط­ظپط¸ط©
   if ((path === "/api/driver/wallet/withdraw" || path === "/api/v1/driver/wallet/withdraw") && method === "POST") {
     const a = await requireAuth(request, env, "driver");
     if (a.error) return a.error;
@@ -1129,12 +1134,12 @@ async function app(request, env) {
     const amount = wallet.balance_cents;
     await env.DB.batch([
       env.DB.prepare("UPDATE wallets SET balance_cents=0, pending_cents=pending_cents+? WHERE id=?").bind(amount, wid),
-      env.DB.prepare("INSERT INTO wallet_transactions (id,wallet_id,type,amount_cents,note) VALUES (?,?,?,?,?)").bind(uid("wt"), wid, "debit", amount, "طلب سحب")
+      env.DB.prepare("INSERT INTO wallet_transactions (id,wallet_id,type,amount_cents,note) VALUES (?,?,?,?,?)").bind(uid("wt"), wid, "debit", amount, "ط·ظ„ط¨ ط³ط­ط¨")
     ]);
     return ok({ message: "withdrawal requested" }, env);
   }
 
-  // مستندات السائق
+  // ظ…ط³طھظ†ط¯ط§طھ ط§ظ„ط³ط§ط¦ظ‚
   if ((path === "/api/driver/documents" || path === "/api/v1/driver/documents") && method === "GET") {
     const a = await requireAuth(request, env, "driver");
     if (a.error) return a.error;
@@ -1144,7 +1149,7 @@ async function app(request, env) {
     return ok({ data: docs.results || [] }, env);
   }
 
-  // معلومات مركبة السائق
+  // ظ…ط¹ظ„ظˆظ…ط§طھ ظ…ط±ظƒط¨ط© ط§ظ„ط³ط§ط¦ظ‚
   if ((path === "/api/driver/vehicle" || path === "/api/v1/driver/vehicle") && method === "GET") {
     const a = await requireAuth(request, env, "driver");
     if (a.error) return a.error;
@@ -1152,7 +1157,7 @@ async function app(request, env) {
     return ok({ data: d || {} }, env);
   }
 
-  // إشعارات السائق
+  // ط¥ط´ط¹ط§ط±ط§طھ ط§ظ„ط³ط§ط¦ظ‚
   if ((path === "/api/driver/notifications" || path === "/api/v1/driver/notifications") && method === "GET") {
     const a = await requireAuth(request, env, "driver");
     if (a.error) return a.error;
@@ -1161,140 +1166,173 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // ORDER ACTIONS - إجراءات الطلب (قبول، رفض، تجهيز، توصيل)
+  // ORDER ACTIONS - ط¥ط¬ط±ط§ط،ط§طھ ط§ظ„ط·ظ„ط¨ (ظ‚ط¨ظˆظ„طŒ ط±ظپط¶طŒ طھط¬ظ‡ظٹط²طŒ طھظˆطµظٹظ„)
   // ================================================================
 
   const action = path.match(/^\/(?:api\/v1|api)\/orders\/([^/]+)\/([^/]+)$/);
   if (action && method === "POST") {
     const [, orderId, act] = action;
-    const a = await requireAuth(request, env);
-    if (a.error) return a.error;
+    const authResult = await requireAuth(request, env);
+    if (authResult.error) return authResult.error;
+    const a = authResult;
     const b = await readBody(request);
     const order = await getOrder(env, orderId);
     if (!order) return fail("Order not found", 404, "NOT_FOUND", env);
 
-    // المطعم يقبل الطلب
+    // ط§ظ„ظ…ط·ط¹ظ… ظٹظ‚ط¨ظ„ ط§ظ„ط·ظ„ط¨
     if (act === "restaurant-accept" || act === "accept") {
       if (a.user.role !== "restaurant" || order.owner_user_id !== a.user.id) return fail("Forbidden", 403, "FORBIDDEN", env);
       const prep = Math.max(5, Number(b.prepTime || b.prepTimeMin || 25));
       await env.DB.prepare("UPDATE orders SET status='accepted_by_restaurant', prep_time_min=?, restaurant_note=?, updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(prep, b.note || b.restaurant_note || "", orderId).run();
-      await addEvent(env, orderId, a.user.id, "restaurant.accepted", `المطعم قبل الطلب - وقت التجهيز ${prep} دقيقة`);
-      await notify(env, order.customer_user_id, "تم قبول الطلب", `المطعم قبل طلبك. وقت التجهيز ${prep} دقيقة.`);
+      await addEvent(env, orderId, a.user.id, "restaurant.accepted", `ط§ظ„ظ…ط·ط¹ظ… ظ‚ط¨ظ„ ط§ظ„ط·ظ„ط¨ - ظˆظ‚طھ ط§ظ„طھط¬ظ‡ظٹط² ${prep} ط¯ظ‚ظٹظ‚ط©`);
+      await notify(env, order.customer_user_id, "طھظ… ظ‚ط¨ظˆظ„ ط§ظ„ط·ظ„ط¨", `ط§ظ„ظ…ط·ط¹ظ… ظ‚ط¨ظ„ ط·ظ„ط¨ظƒ. ظˆظ‚طھ ط§ظ„طھط¬ظ‡ظٹط² ${prep} ط¯ظ‚ظٹظ‚ط©.`);
       broadcastToOrder(orderId, "order:status", { status: "accepted_by_restaurant", prep_time_min: prep });
       return ok({ message: "accepted" }, env);
     }
 
-    // المطعم يرفض الطلب
+    // ط§ظ„ظ…ط·ط¹ظ… ظٹط±ظپط¶ ط§ظ„ط·ظ„ط¨
     if (act === "restaurant-reject" || act === "reject") {
       if (a.user.role !== "restaurant" || order.owner_user_id !== a.user.id) return fail("Forbidden", 403, "FORBIDDEN", env);
       await env.DB.prepare("UPDATE orders SET status='rejected_by_restaurant', cancel_reason=?, updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(b.reason || "Rejected", orderId).run();
-      await addEvent(env, orderId, a.user.id, "restaurant.rejected", b.reason || "رفض المطعم الطلب");
-      await notify(env, order.customer_user_id, "تم رفض الطلب", "المطعم رفض الطلب.");
+      await addEvent(env, orderId, a.user.id, "restaurant.rejected", b.reason || "ط±ظپط¶ ط§ظ„ظ…ط·ط¹ظ… ط§ظ„ط·ظ„ط¨");
+      await notify(env, order.customer_user_id, "طھظ… ط±ظپط¶ ط§ظ„ط·ظ„ط¨", "ط§ظ„ظ…ط·ط¹ظ… ط±ظپط¶ ط§ظ„ط·ظ„ط¨.");
       broadcastToOrder(orderId, "order:status", { status: "rejected_by_restaurant" });
       return ok({ message: "rejected" }, env);
     }
 
-    // جاري التحضير
+    // ط¬ط§ط±ظٹ ط§ظ„طھط­ط¶ظٹط±
     if (act === "preparing") {
       if (a.user.role !== "restaurant" || order.owner_user_id !== a.user.id) return fail("Forbidden", 403, "FORBIDDEN", env);
       await env.DB.prepare("UPDATE orders SET status='preparing', updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(orderId).run();
-      await addEvent(env, orderId, a.user.id, "restaurant.preparing", "جاري تحضير الطلب");
+      await addEvent(env, orderId, a.user.id, "restaurant.preparing", "ط¬ط§ط±ظٹ طھط­ط¶ظٹط± ط§ظ„ط·ظ„ط¨");
       broadcastToOrder(orderId, "order:status", { status: "preparing" });
       return ok({ message: "preparing" }, env);
     }
 
-    // الطلب جاهز (يُتاح للسائقين لاختياره)
+    // ط§ظ„ط·ظ„ط¨ ط¬ط§ظ‡ط² (ظٹظڈطھط§ط­ ظ„ظ„ط³ط§ط¦ظ‚ظٹظ† ظ„ط§ط®طھظٹط§ط±ظ‡)
     if (act === "ready") {
       if (a.user.role !== "restaurant" || order.owner_user_id !== a.user.id) return fail("Forbidden", 403, "FORBIDDEN", env);
       await env.DB.prepare("UPDATE orders SET status='ready_for_driver', updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(orderId).run();
-      await addEvent(env, orderId, a.user.id, "restaurant.ready", "الطلب جاهز للسائق");
-      await notify(env, order.customer_user_id, "الطلب جاهز", "الطلب جاهز ونبحث عن سائق.");
+      await addEvent(env, orderId, a.user.id, "restaurant.ready", "ط§ظ„ط·ظ„ط¨ ط¬ط§ظ‡ط² ظ„ظ„ط³ط§ط¦ظ‚");
+      await notify(env, order.customer_user_id, "ط§ظ„ط·ظ„ط¨ ط¬ط§ظ‡ط²", "ط§ظ„ط·ظ„ط¨ ط¬ط§ظ‡ط² ظˆظ†ط¨ط­ط« ط¹ظ† ط³ط§ط¦ظ‚.");
       broadcastToOrder(orderId, "order:status", { status: "ready_for_driver" });
       broadcastToDrivers("driver:new_order", { orderId, restaurant_name: order.restaurant_name, delivery_address: order.delivery_address });
       return ok({ message: "ready" }, env);
     }
 
-    // السائق يقبل الطلب
+    // ط§ظ„ط³ط§ط¦ظ‚ ظٹظ‚ط¨ظ„ ط§ظ„ط·ظ„ط¨
     if (act === "driver-accept") {
       if (a.user.role !== "driver") return fail("Driver role required", 403, "FORBIDDEN", env);
-      if (order.status !== "ready_for_driver" || order.driver_id) return fail("Order not available", 409, "NOT_AVAILABLE", env);
-      const d = await env.DB.prepare("SELECT * FROM drivers WHERE user_id=?").bind(a.user.id).first();
+      const driverUserId = a.user.id ?? a.user.sub;
+      const d = await env.DB.prepare("SELECT * FROM drivers WHERE user_id=?").bind(driverUserId).first();
       if (!d || d.status !== "online" || d.verification_status !== "approved") return fail("Driver must be online and approved", 409, "DRIVER_NOT_ONLINE", env);
-      await env.DB.batch([
-        env.DB.prepare("UPDATE orders SET status='accepted_by_driver', driver_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(d.id, orderId),
-        env.DB.prepare("UPDATE drivers SET status='busy' WHERE id=?").bind(d.id)
-      ]);
-      await addEvent(env, orderId, a.user.id, "driver.accepted", "السائق قبل التوصيل");
-      await notify(env, order.customer_user_id, "السائق قبل الطلب", "السائق في طريقه للمطعم.");
+      // Atomic conditional claim: only assign if order is still ready_for_driver and unassigned
+      const res = await env.DB.prepare("UPDATE orders SET status='accepted_by_driver', driver_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='ready_for_driver' AND driver_id IS NULL").bind(d.id, orderId).run();
+      if (!res.meta.changes) return fail("Order not available or already claimed", 409, "ALREADY_CLAIMED", env);
+      await env.DB.prepare("UPDATE drivers SET status='busy' WHERE id=?").bind(d.id).run();
+      await addEvent(env, orderId, a.user.id, "driver.accepted", "ط§ظ„ط³ط§ط¦ظ‚ ظ‚ط¨ظ„ ط§ظ„طھظˆطµظٹظ„");
+      await notify(env, order.customer_user_id, "ط§ظ„ط³ط§ط¦ظ‚ ظ‚ط¨ظ„ ط§ظ„ط·ظ„ط¨", "ط§ظ„ط³ط§ط¦ظ‚ ظپظٹ ط·ط±ظٹظ‚ظ‡ ظ„ظ„ظ…ط·ط¹ظ….");
       broadcastToOrder(orderId, "order:status", { status: "accepted_by_driver", driver_id: d.id });
       return ok({ message: "driver accepted" }, env);
     }
 
-    // السائق استلم الطلب من المطعم
+    // ط§ظ„ط³ط§ط¦ظ‚ ط§ط³طھظ„ظ… ط§ظ„ط·ظ„ط¨ ظ…ظ† ط§ظ„ظ…ط·ط¹ظ…
     if (act === "picked-up") {
       if (a.user.role !== "driver") return fail("Driver role required", 403, "FORBIDDEN", env);
-      await env.DB.prepare("UPDATE orders SET status='picked_up', updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(orderId).run();
-      await addEvent(env, orderId, a.user.id, "driver.picked_up", "السائق استلم الطلب من المطعم");
-      await notify(env, order.customer_user_id, "تم استلام الطلب", "السائق استلم الطلب من المطعم.");
+      const driverUserId = a.user.id ?? a.user.sub;
+      const d = await env.DB.prepare("SELECT id FROM drivers WHERE user_id=?").bind(driverUserId).first();
+      if (!d) return fail("Driver not found", 404, "NOT_FOUND", env);
+      const res = await env.DB.prepare("UPDATE orders SET status='picked_up', updated_at=CURRENT_TIMESTAMP WHERE id=? AND driver_id=? AND status='accepted_by_driver'").bind(orderId, d.id).run();
+      if (!res.meta.changes) return fail("Order not available for pickup", 409, "INVALID_TRANSITION", env);
+      await addEvent(env, orderId, a.user.id, "driver.picked_up", "ط§ظ„ط³ط§ط¦ظ‚ ط§ط³طھظ„ظ… ط§ظ„ط·ظ„ط¨ ظ…ظ† ط§ظ„ظ…ط·ط¹ظ…");
+      await notify(env, order.customer_user_id, "طھظ… ط§ط³طھظ„ط§ظ… ط§ظ„ط·ظ„ط¨", "ط§ظ„ط³ط§ط¦ظ‚ ط§ط³طھظ„ظ… ط§ظ„ط·ظ„ط¨ ظ…ظ† ط§ظ„ظ…ط·ط¹ظ….");
       broadcastToOrder(orderId, "order:status", { status: "picked_up" });
       return ok({ message: "picked up" }, env);
     }
 
-    // السائق في الطريق
+    // ط§ظ„ط³ط§ط¦ظ‚ ظپظٹ ط§ظ„ط·ط±ظٹظ‚
     if (act === "on-the-way") {
       if (a.user.role !== "driver") return fail("Driver role required", 403, "FORBIDDEN", env);
+      const driverUserId = a.user.id ?? a.user.sub;
+      const d = await env.DB.prepare("SELECT id FROM drivers WHERE user_id=?").bind(driverUserId).first();
+      if (!d) return fail("Driver not found", 404, "NOT_FOUND", env);
       const eta = Math.max(3, Number(b.etaMin || 10));
-      await env.DB.prepare("UPDATE orders SET status='on_the_way', eta_min=?, updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(eta, orderId).run();
-      await addEvent(env, orderId, a.user.id, "driver.on_the_way", `السائق في الطريق إليك - ${eta} دقائق تقريباً`);
-      await notify(env, order.customer_user_id, "السائق في الطريق", `السائق في الطريق إليك - ${eta} دقائق تقريباً.`);
+      const res = await env.DB.prepare("UPDATE orders SET status='on_the_way', eta_min=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND driver_id=? AND status='picked_up'").bind(eta, orderId, d.id).run();
+      if (!res.meta.changes) return fail("Order not available for en-route transition", 409, "INVALID_TRANSITION", env);
+      await addEvent(env, orderId, a.user.id, "driver.on_the_way", `ط§ظ„ط³ط§ط¦ظ‚ ظپظٹ ط§ظ„ط·ط±ظٹظ‚ ط¥ظ„ظٹظƒ - ${eta} ط¯ظ‚ط§ط¦ظ‚ طھظ‚ط±ظٹط¨ط§ظ‹`);
+      await notify(env, order.customer_user_id, "ط§ظ„ط³ط§ط¦ظ‚ ظپظٹ ط§ظ„ط·ط±ظٹظ‚", `ط§ظ„ط³ط§ط¦ظ‚ ظپظٹ ط§ظ„ط·ط±ظٹظ‚ ط¥ظ„ظٹظƒ - ${eta} ط¯ظ‚ط§ط¦ظ‚ طھظ‚ط±ظٹط¨ط§ظ‹.`);
       broadcastToOrder(orderId, "order:status", { status: "on_the_way", eta_min: eta });
       return ok({ message: "on the way", etaMin: eta }, env);
     }
 
-    // تم التوصيل (سائق أو زبون)
+    // طھظ… ط§ظ„طھظˆطµظٹظ„ - ط³ط§ط¦ظ‚ ط£ظˆ ط¹ظ…ظٹظ„ ظٹط¤ظƒط¯ ط§ظ„طھط³ظ„ظٹظ…
     if (act === "delivered") {
-      if (a.user.role !== "driver" && a.user.id !== order.customer_user_id) return fail("Forbidden", 403, "FORBIDDEN", env);
-      const d = a.user.role === "driver"
-        ? await env.DB.prepare("SELECT id FROM drivers WHERE user_id=?").bind(a.user.id).first()
-        : order.driver_id ? { id: order.driver_id } : null;
+      let d = null;
+      let isCustomer = false;
+
+      if (a.user.role === "driver") {
+        const driverUserId = a.user.id ?? a.user.sub;
+        d = await env.DB.prepare("SELECT id FROM drivers WHERE user_id=?").bind(driverUserId).first();
+        if (!d) return fail("Driver not found", 404, "NOT_FOUND", env);
+      } else if (a.user.role === "customer") {
+        isCustomer = true;
+        if (order.customer_user_id !== a.user.id) return fail("Forbidden", 403, "FORBIDDEN", env);
+        if (!order.driver_id) return fail("Order has no assigned driver", 409, "NO_DRIVER", env);
+        d = await env.DB.prepare("SELECT id FROM drivers WHERE id=?").bind(order.driver_id).first();
+        if (!d) return fail("Driver not found", 404, "NOT_FOUND", env);
+      } else {
+        return fail("Driver role required", 403, "FORBIDDEN", env);
+      }
+
+      // ط§ظ„طھط­ظ‚ظ‚ ظ…ظ† ط£ظ† ط§ظ„ط·ظ„ط¨ ظپظٹ ط§ظ„ط­ط§ظ„ط© ط§ظ„طµط­ظٹط­ط© ظˆظ…ط¹ظٹظ† ظ„ظ‡ط°ط§ ط§ظ„ط³ط§ط¦ظ‚
+      // ط§ظ„ط³ط§ط¦ظ‚ ظٹظ…ظƒظ†ظ‡ ط¥ظƒظ…ط§ظ„ ظ…ظ† on_the_wayطŒ ط§ظ„ط¹ظ…ظٹظ„ ظٹظ…ظƒظ†ظ‡ طھط£ظƒظٹط¯ ظ…ظ† on_the_way ط£ظˆ picked_up
+      const validStatuses = isCustomer ? "('on_the_way','picked_up')" : "'on_the_way'";
+      const res = await env.DB.prepare(
+        `UPDATE orders SET status='completed', payment_status=CASE WHEN payment_method='cash' THEN 'paid' ELSE payment_status END, updated_at=CURRENT_TIMESTAMP WHERE id=? AND driver_id=? AND status IN ${validStatuses}`
+      ).bind(orderId, d.id).run();
+
+      if (!res.meta.changes) return fail("Order not available for delivery completion", 409, "INVALID_TRANSITION", env);
+
       const restaurantShare = Math.round(order.subtotal_cents * 0.88);
       const driverShare = order.delivery_fee_cents;
       const platformShare = Math.max(0, order.total_cents - restaurantShare - driverShare);
+
       await env.DB.batch([
-        env.DB.prepare("UPDATE orders SET status='completed', payment_status=CASE WHEN payment_method='cash' THEN 'paid' ELSE payment_status END, updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(orderId),
-        env.DB.prepare("UPDATE drivers SET status='online' WHERE id=?").bind(d?.id || "")
+        env.DB.prepare("UPDATE drivers SET status='online' WHERE id=?").bind(d.id)
       ]);
+
       await creditWallet(env, "restaurant", order.restaurant_id, orderId, restaurantShare, "Restaurant order share");
-      if (d?.id) await creditWallet(env, "driver", d.id, orderId, driverShare, "Driver delivery fee");
+      await creditWallet(env, "driver", d.id, orderId, driverShare, "Driver delivery fee");
       await creditWallet(env, "platform", "platform", orderId, platformShare, "Platform commission");
-      await addEvent(env, orderId, a.user.id, "order.completed", "تم تسليم الطلب");
-      await notify(env, order.customer_user_id, "تم التسليم", "تم تسليم طلبك بنجاح.");
+
+      await addEvent(env, orderId, a.user.id, "order.completed", "طھظ… طھط³ظ„ظٹظ… ط§ظ„ط·ظ„ط¨");
+      await notify(env, order.customer_user_id, "طھظ… ط§ظ„طھط³ظ„ظٹظ…", "طھظ… طھط³ظ„ظٹظ… ط·ظ„ط¨ظƒ ط¨ظ†ط¬ط§ط­.");
       broadcastToOrder(orderId, "order:status", { status: "completed" });
       return ok({ message: "completed" }, env);
     }
 
-    // إلغاء الطلب
+    // ط¥ظ„ط؛ط§ط، ط§ظ„ط·ظ„ط¨
     if (act === "cancel") {
       await env.DB.prepare("UPDATE orders SET status='cancelled', cancel_reason=?, updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(b.reason || "Cancelled", orderId).run();
-      await addEvent(env, orderId, a.user.id, "order.cancelled", b.reason || "تم إلغاء الطلب");
-      await notify(env, order.customer_user_id, "تم إلغاء الطلب", b.reason || "تم إلغاء الطلب.");
+      await addEvent(env, orderId, a.user.id, "order.cancelled", b.reason || "طھظ… ط¥ظ„ط؛ط§ط، ط§ظ„ط·ظ„ط¨");
+      await notify(env, order.customer_user_id, "طھظ… ط¥ظ„ط؛ط§ط، ط§ظ„ط·ظ„ط¨", b.reason || "طھظ… ط¥ظ„ط؛ط§ط، ط§ظ„ط·ظ„ط¨.");
       broadcastToOrder(orderId, "order:status", { status: "cancelled" });
       broadcastToDrivers("driver:order_cancelled", { order_id: orderId });
       return ok({ message: "cancelled" }, env);
     }
 
-    // تسليم للسائق (Handoff للمطعم)
+    // طھط³ظ„ظٹظ… ظ„ظ„ط³ط§ط¦ظ‚ (Handoff ظ„ظ„ظ…ط·ط¹ظ…)
     if (act === "handoff") {
       if (a.user.role !== "restaurant" || order.owner_user_id !== a.user.id) return fail("Forbidden", 403, "FORBIDDEN", env);
       await env.DB.prepare("UPDATE orders SET status='picked_up', updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(orderId).run();
-      await addEvent(env, orderId, a.user.id, "restaurant.handoff", "تم تسليم الطلب للسائق");
+      await addEvent(env, orderId, a.user.id, "restaurant.handoff", "طھظ… طھط³ظ„ظٹظ… ط§ظ„ط·ظ„ط¨ ظ„ظ„ط³ط§ط¦ظ‚");
       broadcastToOrder(orderId, "order:status", { status: "picked_up" });
       return ok({ message: "handoff confirmed" }, env);
     }
   }
 
   // ================================================================
-  // GET ORDER - تفاصيل الطلب
+  // GET ORDER - طھظپط§طµظٹظ„ ط§ظ„ط·ظ„ط¨
   // ================================================================
 
   const single = path.match(/^\/(?:api\/v1|api)\/orders\/([^/]+)$/);
@@ -1309,7 +1347,7 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // WALLET - المحفظة المالية
+  // WALLET - ط§ظ„ظ…ط­ظپط¸ط© ط§ظ„ظ…ط§ظ„ظٹط©
   // ================================================================
 
   if ((path === "/api/wallet" || path === "/api/v1/wallet") && method === "GET") {
@@ -1333,7 +1371,7 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // NOTIFICATIONS - الإشعارات الداخلية
+  // NOTIFICATIONS - ط§ظ„ط¥ط´ط¹ط§ط±ط§طھ ط§ظ„ط¯ط§ط®ظ„ظٹط©
   // ================================================================
 
   if ((path === "/api/notifications" || path === "/api/v1/notifications") && method === "GET") {
@@ -1344,7 +1382,7 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // SUPPORT TICKETS - تذاكر الدعم الفني
+  // SUPPORT TICKETS - طھط°ط§ظƒط± ط§ظ„ط¯ط¹ظ… ط§ظ„ظپظ†ظٹ
   // ================================================================
 
   if ((path === "/api/support/tickets" || path === "/api/v1/support/tickets") && method === "POST") {
@@ -1357,7 +1395,7 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // RATINGS - التقييمات
+  // RATINGS - ط§ظ„طھظ‚ظٹظٹظ…ط§طھ
   // ================================================================
 
   if ((path === "/api/ratings" || path === "/api/v1/ratings") && method === "POST") {
@@ -1370,7 +1408,7 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // PAYMENTS - بوابة الدفع (Placeholder)
+  // PAYMENTS - ط¨ظˆط§ط¨ط© ط§ظ„ط¯ظپط¹ (Placeholder)
   // ================================================================
 
   if ((path === "/api/payments/create-intent" || path === "/api/v1/payments/create-intent") && method === "POST") {
@@ -1385,10 +1423,10 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // ADMIN - لوحة التحكم (خاص بالأدمن)
+  // ADMIN - ظ„ظˆط­ط© ط§ظ„طھط­ظƒظ… (ط®ط§طµ ط¨ط§ظ„ط£ط¯ظ…ظ†)
   // ================================================================
 
-  // إنشاء أول أدمن (إذا ما في أدمن)
+  // ط¥ظ†ط´ط§ط، ط£ظˆظ„ ط£ط¯ظ…ظ† (ط¥ط°ط§ ظ…ط§ ظپظٹ ط£ط¯ظ…ظ†)
   if ((path === "/api/admin/setup" || path === "/api/v1/admin/setup") && method === "POST") {
     const existing = await env.DB.prepare("SELECT COUNT(*) count FROM users WHERE role='admin'").first();
     if (existing && existing.count > 0) return fail("Admin already exists", 403, "ADMIN_EXISTS", env);
@@ -1401,7 +1439,7 @@ async function app(request, env) {
     return ok({ token: await signJwt({ sub: userId, role: "admin" }, env), user: { id: userId, name: b.name, email: b.email, role: "admin" } }, env, 201);
   }
 
-  // دخول الأدمن
+  // ط¯ط®ظˆظ„ ط§ظ„ط£ط¯ظ…ظ†
   if ((path === "/api/admin/auth/login" || path === "/api/v1/admin/auth/login") && method === "POST") {
     const b = await readBody(request);
     const user = await env.DB.prepare("SELECT * FROM users WHERE email=? AND role='admin'").bind(String(b.email || "").toLowerCase()).first();
@@ -1411,14 +1449,14 @@ async function app(request, env) {
     return ok({ token: await signJwt({ sub: user.id, role: "admin" }, env), user: { id: user.id, name: user.name, email: user.email, role: user.role } }, env);
   }
 
-  // ملف الأدمن
+  // ظ…ظ„ظپ ط§ظ„ط£ط¯ظ…ظ†
   if ((path === "/api/admin/profile" || path === "/api/v1/admin/profile") && method === "GET") {
     const a = await requireAuth(request, env, "admin");
     if (a.error) return a.error;
     return ok({ data: a.user }, env);
   }
 
-  // لوحة التحكم
+  // ظ„ظˆط­ط© ط§ظ„طھط­ظƒظ…
   if ((path === "/api/admin/dashboard" || path === "/api/v1/admin/dashboard") && method === "GET") {
     const a = await requireAuth(request, env, "admin");
     if (a.error) return a.error;
@@ -1441,7 +1479,7 @@ async function app(request, env) {
     }, env);
   }
 
-  // الطلبات النشطة (للأدمن)
+  // ط§ظ„ط·ظ„ط¨ط§طھ ط§ظ„ظ†ط´ط·ط© (ظ„ظ„ط£ط¯ظ…ظ†)
   if ((path === "/api/admin/orders" || path === "/api/v1/admin/orders/active" || path === "/api/admin/orders/active") && method === "GET") {
     const a = await requireAuth(request, env, "admin");
     if (a.error) return a.error;
@@ -1449,7 +1487,7 @@ async function app(request, env) {
     return ok({ data: rows.results || [], orders: rows.results || [] }, env);
   }
 
-  // جميع الطلبات (للأدمن)
+  // ط¬ظ…ظٹط¹ ط§ظ„ط·ظ„ط¨ط§طھ (ظ„ظ„ط£ط¯ظ…ظ†)
   if (path === "/api/admin/orders" && method === "GET" && !path.includes("active")) {
     const a = await requireAuth(request, env, "admin");
     if (a.error) return a.error;
@@ -1457,7 +1495,7 @@ async function app(request, env) {
     return ok({ orders: rows.results || [] }, env);
   }
 
-  // المستخدمين (للأدمن)
+  // ط§ظ„ظ…ط³طھط®ط¯ظ…ظٹظ† (ظ„ظ„ط£ط¯ظ…ظ†)
   if ((path === "/api/admin/users" || path === "/api/v1/admin/users") && method === "GET") {
     const a = await requireAuth(request, env, "admin");
     if (a.error) return a.error;
@@ -1465,7 +1503,7 @@ async function app(request, env) {
     return ok({ users: rows.results || [] }, env);
   }
 
-  // الحسابات حسب النوع (للأدمن)
+  // ط§ظ„ط­ط³ط§ط¨ط§طھ ط­ط³ط¨ ط§ظ„ظ†ظˆط¹ (ظ„ظ„ط£ط¯ظ…ظ†)
   if ((path === "/api/admin/accounts" || path === "/api/v1/admin/accounts") && method === "GET") {
     const a = await requireAuth(request, env, "admin");
     if (a.error) return a.error;
@@ -1483,7 +1521,7 @@ async function app(request, env) {
     return ok({ data: rows }, env);
   }
 
-  // إشعارات الأدمن
+  // ط¥ط´ط¹ط§ط±ط§طھ ط§ظ„ط£ط¯ظ…ظ†
   if ((path === "/api/admin/notifications" || path === "/api/v1/admin/notifications") && method === "GET") {
     const a = await requireAuth(request, env, "admin");
     if (a.error) return a.error;
@@ -1491,21 +1529,21 @@ async function app(request, env) {
     return ok({ data: rows.results || [] }, env);
   }
 
-  // إعدادات المنصة
+  // ط¥ط¹ط¯ط§ط¯ط§طھ ط§ظ„ظ…ظ†طµط©
   if ((path === "/api/admin/settings" || path === "/api/v1/admin/settings") && method === "PUT") {
     const a = await requireAuth(request, env, "admin");
     if (a.error) return a.error;
     const b = await readBody(request);
-    // هنا يتم تخزين الإعدادات (حاليًا نسجل فقط - يمكن إضافة جدول settings لاحقًا)
+    // ظ‡ظ†ط§ ظٹطھظ… طھط®ط²ظٹظ† ط§ظ„ط¥ط¹ط¯ط§ط¯ط§طھ (ط­ط§ظ„ظٹظ‹ط§ ظ†ط³ط¬ظ„ ظپظ‚ط· - ظٹظ…ظƒظ† ط¥ط¶ط§ظپط© ط¬ط¯ظˆظ„ settings ظ„ط§ط­ظ‚ظ‹ط§)
     await audit(env, a.user, "admin.settings", "settings", null, request);
     return ok({ message: "saved" }, env);
   }
 
   // ================================================================
-  // ADMIN DOCUMENTS - إدارة مستندات الأدمن
+  // ADMIN DOCUMENTS - ط¥ط¯ط§ط±ط© ظ…ط³طھظ†ط¯ط§طھ ط§ظ„ط£ط¯ظ…ظ†
   // ================================================================
 
-  // قائمة كل المستندات
+  // ظ‚ط§ط¦ظ…ط© ظƒظ„ ط§ظ„ظ…ط³طھظ†ط¯ط§طھ
   if ((path === "/api/admin/documents" || path === "/api/v1/admin/documents") && method === "GET") {
     const a = await requireAuth(request, env, "admin");
     if (a.error) return a.error;
@@ -1513,7 +1551,7 @@ async function app(request, env) {
     return ok({ documents: rows.results || [], data: rows.results || [] }, env);
   }
 
-  // الموافقة أو رفض مستند
+  // ط§ظ„ظ…ظˆط§ظپظ‚ط© ط£ظˆ ط±ظپط¶ ظ…ط³طھظ†ط¯
   const docApprove = path.match(/^\/api\/admin\/documents\/([^/]+)\/(approve|reject)$/);
   if (docApprove && method === "POST") {
     const a = await requireAuth(request, env, "admin");
@@ -1521,7 +1559,7 @@ async function app(request, env) {
     const status = docApprove[2] === "approve" ? "approved" : "rejected";
     const b = await readBody(request);
     await env.DB.prepare("UPDATE documents SET status=?, reviewed_by=?, reviewed_at=CURRENT_TIMESTAMP, review_note=? WHERE id=?").bind(status, a.user.id, b.reviewNote || null, docApprove[1]).run();
-    // إذا تمت الموافقة، نحدث حالة المطعم أو السائق
+    // ط¥ط°ط§ طھظ…طھ ط§ظ„ظ…ظˆط§ظپظ‚ط©طŒ ظ†ط­ط¯ط« ط­ط§ظ„ط© ط§ظ„ظ…ط·ط¹ظ… ط£ظˆ ط§ظ„ط³ط§ط¦ظ‚
     const doc = await env.DB.prepare("SELECT * FROM documents WHERE id=?").bind(docApprove[1]).first();
     if (doc && status === "approved") {
       if (doc.owner_type === "restaurant") {
@@ -1535,7 +1573,7 @@ async function app(request, env) {
     return ok({ status }, env);
   }
 
-  // الموافقة أو رفض حساب سائق/مطعم مباشرة (بدون مستندات)
+  // ط§ظ„ظ…ظˆط§ظپظ‚ط© ط£ظˆ ط±ظپط¶ ط­ط³ط§ط¨ ط³ط§ط¦ظ‚/ظ…ط·ط¹ظ… ظ…ط¨ط§ط´ط±ط© (ط¨ط¯ظˆظ† ظ…ط³طھظ†ط¯ط§طھ)
   const userApprove = path.match(/^\/api\/admin\/users\/([^/]+)\/(approve|reject)$/);
   if (userApprove && method === "POST") {
     const a = await requireAuth(request, env, "admin");
@@ -1556,7 +1594,7 @@ async function app(request, env) {
     return ok({ status }, env);
   }
 
-  // حذف حساب مستخدم (للأدمن)
+  // ط­ط°ظپ ط­ط³ط§ط¨ ظ…ط³طھط®ط¯ظ… (ظ„ظ„ط£ط¯ظ…ظ†)
   const userDelete = path.match(/^\/api\/admin\/users\/([^/]+)\/delete$/);
   if (userDelete && method === "POST") {
     const a = await requireAuth(request, env, "admin");
@@ -1588,17 +1626,17 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // [الميزة 1] DOCUMENTS UPLOAD - رفع المستندات
+  // [ط§ظ„ظ…ظٹط²ط© 1] DOCUMENTS UPLOAD - ط±ظپط¹ ط§ظ„ظ…ط³طھظ†ط¯ط§طھ
   // ================================================================
 
-  // رفع مستند (للسائقين والمطاعم)
-  // يستقبل multipart/form-data: file, document_type
+  // ط±ظپط¹ ظ…ط³طھظ†ط¯ (ظ„ظ„ط³ط§ط¦ظ‚ظٹظ† ظˆط§ظ„ظ…ط·ط§ط¹ظ…)
+  // ظٹط³طھظ‚ط¨ظ„ multipart/form-data: file, document_type
   if ((path === "/api/documents/upload" || path === "/api/v1/documents/upload") && method === "POST") {
     const a = await requireAuth(request, env);
     if (a.error) return a.error;
     if (!["driver", "restaurant"].includes(a.user.role)) return fail("Only drivers and restaurants can upload documents", 403, "FORBIDDEN", env);
 
-    // قراءة الـ FormData
+    // ظ‚ط±ط§ط،ط© ط§ظ„ظ€ FormData
     const formData = await readFormData(request);
     if (!formData) return fail("Invalid form data", 422, "INVALID_FORM", env);
 
@@ -1612,7 +1650,7 @@ async function app(request, env) {
     const mimeType = file.type || "application/octet-stream";
     const fileSize = file.size;
 
-    // تحديد owner_id حسب الدور
+    // طھط­ط¯ظٹط¯ owner_id ط­ط³ط¨ ط§ظ„ط¯ظˆط±
     let ownerType = a.user.role;
     let ownerId = a.user.id;
     if (a.user.role === "restaurant") {
@@ -1634,7 +1672,7 @@ async function app(request, env) {
     return ok({ id: docId, message: "Document uploaded successfully, pending review" }, env, 201);
   }
 
-  // قائمة مستندات المستخدم الحالي
+  // ظ‚ط§ط¦ظ…ط© ظ…ط³طھظ†ط¯ط§طھ ط§ظ„ظ…ط³طھط®ط¯ظ… ط§ظ„ط­ط§ظ„ظٹ
   if ((path === "/api/documents/list" || path === "/api/v1/documents/list") && method === "GET") {
     const a = await requireAuth(request, env);
     if (a.error) return a.error;
@@ -1652,10 +1690,10 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // [الميزة 2] DRIVER GPS TRACKING - تتبع السائق للعميل
+  // [ط§ظ„ظ…ظٹط²ط© 2] DRIVER GPS TRACKING - طھطھط¨ط¹ ط§ظ„ط³ط§ط¦ظ‚ ظ„ظ„ط¹ظ…ظٹظ„
   // ================================================================
 
-  // جلب آخر موقع للسائق لطلب معين (للعميل)
+  // ط¬ظ„ط¨ ط¢ط®ط± ظ…ظˆظ‚ط¹ ظ„ظ„ط³ط§ط¦ظ‚ ظ„ط·ظ„ط¨ ظ…ط¹ظٹظ† (ظ„ظ„ط¹ظ…ظٹظ„)
   if ((path === "/api/tracking/order" || path === "/api/v1/tracking/order") && method === "GET") {
     const a = await requireAuth(request, env);
     if (a.error) return a.error;
@@ -1668,7 +1706,7 @@ async function app(request, env) {
     if (a.error) return a.error;
     const order = await env.DB.prepare("SELECT o.*, d.id driver_id, d.lat, d.lng, d.last_location_at FROM orders o LEFT JOIN drivers d ON d.id=o.driver_id WHERE o.id=?").bind(trackingOrder[1]).first();
     if (!order) return fail("Order not found", 404, "NOT_FOUND", env);
-    // التحقق من الصلاحية: العميل صاحب الطلب أو السائق أو الأدمن
+    // ط§ظ„طھط­ظ‚ظ‚ ظ…ظ† ط§ظ„طµظ„ط§ط­ظٹط©: ط§ظ„ط¹ظ…ظٹظ„ طµط§ط­ط¨ ط§ظ„ط·ظ„ط¨ ط£ظˆ ط§ظ„ط³ط§ط¦ظ‚ ط£ظˆ ط§ظ„ط£ط¯ظ…ظ†
     if (a.user.role !== "admin" && a.user.role !== "driver" && order.customer_user_id !== a.user.id) return fail("Forbidden", 403, "FORBIDDEN", env);
     if (a.user.role === "driver") {
       const d = await env.DB.prepare("SELECT id FROM drivers WHERE user_id=?").bind(a.user.id).first();
@@ -1686,7 +1724,7 @@ async function app(request, env) {
     }, env);
   }
 
-  // موقع سائق معين (للأدمن)
+  // ظ…ظˆظ‚ط¹ ط³ط§ط¦ظ‚ ظ…ط¹ظٹظ† (ظ„ظ„ط£ط¯ظ…ظ†)
   const driverLocation = path.match(/^\/api\/driver\/location\/([^/]+)$/);
   if (driverLocation && method === "GET") {
     const a = await requireAuth(request, env);
@@ -1698,29 +1736,29 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // [الميزة 3] REALTIME VIA WEBSOCKET - تمت المعالجة أعلاه
-  // WebSocket endpoint (بديل مسار)
+  // [ط§ظ„ظ…ظٹط²ط© 3] REALTIME VIA WEBSOCKET - طھظ…طھ ط§ظ„ظ…ط¹ط§ظ„ط¬ط© ط£ط¹ظ„ط§ظ‡
+  // WebSocket endpoint (ط¨ط¯ظٹظ„ ظ…ط³ط§ط±)
   // ================================================================
 
-  // نقطة نهاية WebSocket (للاتصال المباشر)
+  // ظ†ظ‚ط·ط© ظ†ظ‡ط§ظٹط© WebSocket (ظ„ظ„ط§طھطµط§ظ„ ط§ظ„ظ…ط¨ط§ط´ط±)
   if (path === "/api/realtime" || path === "/api/v1/realtime" || path === "/ws") {
     const upgrade = request.headers.get("Upgrade");
     if (upgrade && upgrade.toLowerCase() === "websocket") {
-      // WebSocket معالج وموجود أعلاه
+      // WebSocket ظ…ط¹ط§ظ„ط¬ ظˆظ…ظˆط¬ظˆط¯ ط£ط¹ظ„ط§ظ‡
       const wsResp = handleWebSocket(request, env);
       if (wsResp) return wsResp;
     }
-    // إذا كان GET بدون WebSocket upgrade، نرجع رسالة تعريفية
+    // ط¥ط°ط§ ظƒط§ظ† GET ط¨ط¯ظˆظ† WebSocket upgradeطŒ ظ†ط±ط¬ط¹ ط±ط³ط§ظ„ط© طھط¹ط±ظٹظپظٹط©
     if (method === "GET") {
       return ok({ service: "Fairfood Realtime", protocol: "WebSocket", status: "ready" }, env);
     }
   }
 
   // ================================================================
-  // [الميزة 4] PUSH NOTIFICATIONS - إشعارات الجوال
+  // [ط§ظ„ظ…ظٹط²ط© 4] PUSH NOTIFICATIONS - ط¥ط´ط¹ط§ط±ط§طھ ط§ظ„ط¬ظˆط§ظ„
   // ================================================================
 
-  // تسجيل جهاز للإشعارات
+  // طھط³ط¬ظٹظ„ ط¬ظ‡ط§ط² ظ„ظ„ط¥ط´ط¹ط§ط±ط§طھ
   if ((path === "/api/push/register" || path === "/api/v1/push/register") && method === "POST") {
     const a = await requireAuth(request, env);
     if (a.error) return a.error;
@@ -1728,7 +1766,7 @@ async function app(request, env) {
     if (!b.device_token || !b.platform) return fail("Missing device_token or platform", 422, "MISSING_FIELDS", env);
     if (!["ios", "android", "web"].includes(b.platform)) return fail("Invalid platform", 422, "INVALID_PLATFORM", env);
 
-    // حذف التوكن القديم إذا كان موجوداً
+    // ط­ط°ظپ ط§ظ„طھظˆظƒظ† ط§ظ„ظ‚ط¯ظٹظ… ط¥ط°ط§ ظƒط§ظ† ظ…ظˆط¬ظˆط¯ط§ظ‹
     await env.DB.prepare("DELETE FROM push_tokens WHERE device_token=?").bind(b.device_token).run();
 
     const ptId = uid("pt");
@@ -1737,7 +1775,7 @@ async function app(request, env) {
     return ok({ message: "Device registered for push notifications" }, env, 201);
   }
 
-  // إرسال إشعار (للأدمن أو السيرفر)
+  // ط¥ط±ط³ط§ظ„ ط¥ط´ط¹ط§ط± (ظ„ظ„ط£ط¯ظ…ظ† ط£ظˆ ط§ظ„ط³ظٹط±ظپط±)
   if ((path === "/api/push/send" || path === "/api/v1/push/send") && method === "POST") {
     const a = await requireAuth(request, env);
     if (a.error) return a.error;
@@ -1750,7 +1788,7 @@ async function app(request, env) {
     return ok({ message: "Push notification sent" }, env);
   }
 
-  // إلغاء تسجيل جهاز
+  // ط¥ظ„ط؛ط§ط، طھط³ط¬ظٹظ„ ط¬ظ‡ط§ط²
   if ((path === "/api/push/unregister" || path === "/api/v1/push/unregister") && method === "POST") {
     const a = await requireAuth(request, env);
     if (a.error) return a.error;
@@ -1761,16 +1799,16 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // [الميزة 5] STRIPE INTEGRATION - بوابت الدفع
+  // [ط§ظ„ظ…ظٹط²ط© 5] STRIPE INTEGRATION - ط¨ظˆط§ط¨طھ ط§ظ„ط¯ظپط¹
   // ================================================================
 
-  // إنشاء جلسة دفع (Stripe Checkout Session)
+  // ط¥ظ†ط´ط§ط، ط¬ظ„ط³ط© ط¯ظپط¹ (Stripe Checkout Session)
   if ((path === "/api/stripe/checkout" || path === "/api/v1/stripe/checkout") && method === "POST") {
     const a = await requireAuth(request, env, "customer");
     if (a.error) return a.error;
     const b = await readBody(request);
 
-    // التحقق من أن Stripe مفعل
+    // ط§ظ„طھط­ظ‚ظ‚ ظ…ظ† ط£ظ† Stripe ظ…ظپط¹ظ„
     if (!env.STRIPE_SECRET_KEY) {
       return ok({
         enabled: false,
@@ -1783,16 +1821,16 @@ async function app(request, env) {
     if (!order) return fail("Order not found", 404, "NOT_FOUND", env);
     if (order.customer_user_id !== a.user.id) return fail("Forbidden", 403, "FORBIDDEN", env);
 
-    // الحصول على عملة المطعم
+    // ط§ظ„ط­طµظˆظ„ ط¹ظ„ظ‰ ط¹ظ…ظ„ط© ط§ظ„ظ…ط·ط¹ظ…
     const restaurant = await env.DB.prepare("SELECT currency FROM restaurants WHERE id=?").bind(order.restaurant_id).first();
     const currency = (restaurant?.currency || 'SAR').toLowerCase();
-    
-    // العملات المدعومة في Stripe
+
+    // ط§ظ„ط¹ظ…ظ„ط§طھ ط§ظ„ظ…ط¯ط¹ظˆظ…ط© ظپظٹ Stripe
     const supportedCurrencies = ['sar','usd','eur','aed','egp','gbp','cad','aud','jpy','inr','bhd','kwd','omr','qar','jod','lbp','mad','tnd','dzd','lyd','sdg','try','ils','czk','huf','pln','ron','bgn','hrk','isk','nok','sek','dkk','chf','rub','uah','bgn','ron'];
     const finalCurrency = supportedCurrencies.includes(currency) ? currency : 'sar';
 
     try {
-      // إنشاء Stripe Checkout Session
+      // ط¥ظ†ط´ط§ط، Stripe Checkout Session
       const stripeRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
         method: "POST",
         headers: {
@@ -1805,7 +1843,7 @@ async function app(request, env) {
           "cancel_url": (env.PUBLIC_API_BASE || "https://fairfood.fairfood100.workers.dev") + "/payment/cancel",
           "currency": finalCurrency,
           "line_items[0][price_data][currency]": finalCurrency,
-          "line_items[0][price_data][product_data][name]": "طلب رقم " + order.id.slice(0, 8),
+          "line_items[0][price_data][product_data][name]": "ط·ظ„ط¨ ط±ظ‚ظ… " + order.id.slice(0, 8),
           "line_items[0][price_data][unit_amount]": String(order.total_cents),
           "line_items[0][quantity]": "1",
           "metadata[order_id]": order.id,
@@ -1819,7 +1857,7 @@ async function app(request, env) {
         return fail(session.error?.message || "Stripe error", 402, "STRIPE_ERROR", env);
       }
 
-      // تخزين معرف الجلسة في الطلب
+      // طھط®ط²ظٹظ† ظ…ط¹ط±ظپ ط§ظ„ط¬ظ„ط³ط© ظپظٹ ط§ظ„ط·ظ„ط¨
       await env.DB.prepare("UPDATE orders SET stripe_payment_intent_id=?, payment_method='stripe', payment_status='pending' WHERE id=?")
         .bind(session.payment_intent || session.id, order.id).run();
 
@@ -1829,7 +1867,7 @@ async function app(request, env) {
     }
   }
 
-  // استقبال Webhook من Stripe
+  // ط§ط³طھظ‚ط¨ط§ظ„ Webhook ظ…ظ† Stripe
   if ((path === "/api/stripe/webhook" || path === "/api/v1/stripe/webhook") && method === "POST") {
     const rawBody = await request.clone().text();
 
@@ -1857,14 +1895,14 @@ async function app(request, env) {
 
     const event = JSON.parse(rawBody);
 
-    // معالجة الأحداث
+    // ظ…ط¹ط§ظ„ط¬ط© ط§ظ„ط£ط­ط¯ط§ط«
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
       const orderId = session.metadata?.order_id;
       if (orderId) {
         await env.DB.prepare("UPDATE orders SET payment_status='paid', stripe_payment_intent_id=? WHERE id=?")
           .bind(session.payment_intent || session.id, orderId).run();
-        await notify(env, session.metadata?.customer_id, "تم تأكيد الدفع", "تم دفع الطلب بنجاح.");
+        await notify(env, session.metadata?.customer_id, "طھظ… طھط£ظƒظٹط¯ ط§ظ„ط¯ظپط¹", "طھظ… ط¯ظپط¹ ط§ظ„ط·ظ„ط¨ ط¨ظ†ط¬ط§ط­.");
       }
     }
 
@@ -1879,7 +1917,7 @@ async function app(request, env) {
     return ok({ received: true }, env);
   }
 
-  // استرداد مبلغ (Refund)
+  // ط§ط³طھط±ط¯ط§ط¯ ظ…ط¨ظ„ط؛ (Refund)
   if ((path === "/api/stripe/refund" || path === "/api/v1/stripe/refund") && method === "POST") {
     const a = await requireAuth(request, env, "admin");
     if (a.error) return a.error;
@@ -1920,7 +1958,7 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // FILES - خدمة الملفات من R2
+  // FILES - ط®ط¯ظ…ط© ط§ظ„ظ…ظ„ظپط§طھ ظ…ظ† R2
   // ================================================================
 
   const filesMatch = path.match(/^\/api\/files\/(.+)$/);
@@ -1932,7 +1970,7 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // GEOCODING - تحويل الإحداثيات إلى عنوان
+  // GEOCODING - طھط­ظˆظٹظ„ ط§ظ„ط¥ط­ط¯ط§ط«ظٹط§طھ ط¥ظ„ظ‰ ط¹ظ†ظˆط§ظ†
   // ================================================================
 
   if ((path === "/api/geo/reverse" || path === "/api/v1/geo/reverse") && method === "GET") {
@@ -1951,12 +1989,12 @@ async function app(request, env) {
   }
 
   // ================================================================
-  // مسارات التوافق مع التطبيقات (Action-based routing)
-  // التطبيقات الجديدة تستخدم ?action= بدل المسارات
+  // ظ…ط³ط§ط±ط§طھ ط§ظ„طھظˆط§ظپظ‚ ظ…ط¹ ط§ظ„طھط·ط¨ظٹظ‚ط§طھ (Action-based routing)
+  // ط§ظ„طھط·ط¨ظٹظ‚ط§طھ ط§ظ„ط¬ط¯ظٹط¯ط© طھط³طھط®ط¯ظ… ?action= ط¨ط¯ظ„ ط§ظ„ظ…ط³ط§ط±ط§طھ
   // ================================================================
 
-  // GET /api/driver?action=profile (ملف السائق)
-  // GET /api/driver?action=available (الطلبات المتاحة)
+  // GET /api/driver?action=profile (ظ…ظ„ظپ ط§ظ„ط³ط§ط¦ظ‚)
+  // GET /api/driver?action=available (ط§ظ„ط·ظ„ط¨ط§طھ ط§ظ„ظ…طھط§ط­ط©)
   if ((path === "/api/driver" || path === "/api/v1/driver") && method === "GET") {
     const action = url.searchParams.get("action");
     if (action === "profile") {
@@ -1988,7 +2026,7 @@ async function app(request, env) {
     return fail("Unknown action", 400, "UNKNOWN_ACTION", env);
   }
 
-  // POST /api/driver (تحديث حالة السائق)
+  // POST /api/driver (طھط­ط¯ظٹط« ط­ط§ظ„ط© ط§ظ„ط³ط§ط¦ظ‚)
   if ((path === "/api/driver" || path === "/api/v1/driver") && method === "POST") {
     const b = await readBody(request);
     if (b.action === "status") {
@@ -2001,7 +2039,7 @@ async function app(request, env) {
     return fail("Unknown action", 400, "UNKNOWN_ACTION", env);
   }
 
-  // POST /api/driver-order (قبول/رفض طلب)
+  // POST /api/driver-order (ظ‚ط¨ظˆظ„/ط±ظپط¶ ط·ظ„ط¨)
   if ((path === "/api/driver-order" || path === "/api/v1/driver-order") && method === "POST") {
     const b = await readBody(request);
     const a = await requireAuth(request, env, "driver");
@@ -2011,7 +2049,7 @@ async function app(request, env) {
       const d = await env.DB.prepare("SELECT id FROM drivers WHERE user_id=?").bind(a.user.id).first();
       if (!d) return fail("Driver not found", 404, "NOT_FOUND", env);
       await env.DB.prepare("UPDATE orders SET driver_id=?, status='accepted_by_driver', updated_at=CURRENT_TIMESTAMP WHERE id=? AND driver_id IS NULL").bind(d.id, b.orderId).run();
-      await addEvent(env, b.orderId, "accepted_by_driver", "تم قبول الطلب من السائق");
+      await addEvent(env, b.orderId, "accepted_by_driver", "طھظ… ظ‚ط¨ظˆظ„ ط§ظ„ط·ظ„ط¨ ظ…ظ† ط§ظ„ط³ط§ط¦ظ‚");
       broadcastToOrder(b.orderId, "order:status", { status: "accepted_by_driver", driverId: d.id });
       return ok({ message: "Order accepted" }, env);
     }
@@ -2022,8 +2060,8 @@ async function app(request, env) {
     return fail("Unknown action", 400, "UNKNOWN_ACTION", env);
   }
 
-  // GET /api/finance?action=wallet (محفظة وأرباح السائق)
-  // GET /api/finance?action=transactions (حركات المحفظة)
+  // GET /api/finance?action=wallet (ظ…ط­ظپط¸ط© ظˆط£ط±ط¨ط§ط­ ط§ظ„ط³ط§ط¦ظ‚)
+  // GET /api/finance?action=transactions (ط­ط±ظƒط§طھ ط§ظ„ظ…ط­ظپط¸ط©)
   if ((path === "/api/finance" || path === "/api/v1/finance") && method === "GET") {
     const action = url.searchParams.get("action");
     const a = await requireAuth(request, env, "driver");
@@ -2041,21 +2079,21 @@ async function app(request, env) {
     if (action === "transactions") {
       const wid = await createWalletIfMissing(env, "driver", d.id);
       const tx = await env.DB.prepare("SELECT * FROM wallet_transactions WHERE wallet_id=? ORDER BY created_at DESC LIMIT 50").bind(wid).all();
-      const mapped = (tx.results || []).map(t => ({ description: t.note || "حركة مالية", created_at: t.created_at, type: t.type, amount: Math.round((t.amount_cents || 0) / 100) }));
+      const mapped = (tx.results || []).map(t => ({ description: t.note || "ط­ط±ظƒط© ظ…ط§ظ„ظٹط©", created_at: t.created_at, type: t.type, amount: Math.round((t.amount_cents || 0) / 100) }));
       return ok({ data: mapped }, env);
     }
     return fail("Unknown action", 400, "UNKNOWN_ACTION", env);
   }
 
   // ================================================================
-  // آخر شيء: المسار غير موجود
+  // ط¢ط®ط± ط´ظٹط،: ط§ظ„ظ…ط³ط§ط± ط؛ظٹط± ظ…ظˆط¬ظˆط¯
   // ================================================================
 
   return fail("Route not found", 404, "ROUTE_NOT_FOUND", env);
 }
 
 // ============================================================
-// تصدير الـ Worker
+// طھطµط¯ظٹط± ط§ظ„ظ€ Worker
 // ============================================================
 export default {
   async fetch(request, env) {
