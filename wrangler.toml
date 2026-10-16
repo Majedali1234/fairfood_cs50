@@ -4,8 +4,8 @@ pages_build_output_dir = "."
 
 [[d1_databases]]
 binding = "DB"
-database_name = "fairfood-db"
-database_id = "d6950e98-4c6b-4247-bb28-67438d08b806"
+database_name = "fairfood-cs50-preview-db"
+database_id = "8c4d6cef-57ef-4a57-9c82-b20247bc725e"
 
 # [[r2_buckets]]
 # binding = "R2"
