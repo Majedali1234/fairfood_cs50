@@ -2,7 +2,14 @@ name = "fairfood"
 compatibility_date = "2026-06-03"
 pages_build_output_dir = "."
 
+# Existing production database — keep unchanged
 [[d1_databases]]
+binding = "DB"
+database_name = "fairfood-db"
+database_id = "d6950e98-4c6b-4247-bb28-67438d08b806"
+
+# Separate preview database
+[[env.preview.d1_databases]]
 binding = "DB"
 database_name = "fairfood-cs50-preview-db"
 database_id = "8c4d6cef-57ef-4a57-9c82-b20247bc725e"
@@ -10,9 +17,3 @@ database_id = "8c4d6cef-57ef-4a57-9c82-b20247bc725e"
 # [[r2_buckets]]
 # binding = "R2"
 # bucket_name = "fairfood-uploads"
-# Uncomment above & run: wrangler r2 bucket create fairfood-uploads
-
-[[env.preview.d1_databases]]
-binding = "DB"
-database_name = "fairfood-cs50-preview-db"
-database_id = "8c4d6cef-57ef-4a57-9c82-b20247bc725e"
